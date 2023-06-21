@@ -1,0 +1,142 @@
+clc
+close all
+clearvars
+
+global use_FFT_decoupled
+use_FFT_decoupled=false;
+
+% input setup -------------------------------------------------------------
+% STL in mm
+num_input_files=1;
+file_names=cell(num_input_files,1);
+k=1;
+file_names{k}='cross_bar.stl';k=k+1;
+
+k=1;
+materials{k}.sigmar=9.4e6;   materials{k}.eps_re=1;      materials{k}.tan_D=0; materials{k}.mur=1;k=k+1;
+
+ports=crossbar_structure_nodes_ports_definition();
+lumped_elements=crossbar_structure_lumped_elements_definition();
+
+global minmax
+
+load('mesher_output.mat');
+
+Nx=size(grids{1},1);
+Ny=size(grids{1},2);
+Nz=size(grids{1},3);
+
+% -------------------------------------------------------------------------
+
+% -------Solver setup ---------------------------------------------------
+n_freq=10;
+freq=logspace(log10(1e6),log10(1e9),n_freq);
+
+GMRES_settings.Inner_Iter=150;
+GMRES_settings.Outer_Iter=1;
+
+GMRES_settings.tol=1e-5*ones(n_freq,1);
+ind_low_freq=find(freq<1e5);
+GMRES_settings.tol(ind_low_freq)=1e-5;
+
+QS_Rcc_FW=1; % 1 QS, 2 Rcc, 3 Taylor
+use_escalings=1;
+solver_form=1; % 1 = solver Z, 2 = solver S, 3 = solver S inf
+use_Zs=0;
+% -------------------------------------------------------------------------
+
+[mapping_vols,num_centri]=create_volumes_mapping_v2_mex(grids);
+[centri_vox,id_mat]=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
+toc
+
+plot_mesh(centri_vox,sx,sy,sz,id_mat,num_input_files);
+
+externals_grids=create_Grids_externals_mex(grids);
+
+% build_paraview_file(externals_grids,sx,sy,sz,'meshed_paraview.vtk');
+
+% [escalings,incidence_selection,patches,diagonals,ind_bars,ports,...
+%     lumped_elements,li_mats,Zs_info]=mesher_LU(use_escalings,...
+%     materials,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,ports,lumped_elements);
+
+[escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,...
+    lumped_elements,li_mats,maps_Zs]=mesher_FFT(use_escalings,...
+    materials,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,ports,lumped_elements);
+
+% global min_v
+% save('cross_bar','grids')
+% save('cross_bar','lumped_elements','-append')
+% save('cross_bar','materials','-append')
+% save('cross_bar','min_v','-append')
+% save('cross_bar','ports','-append')
+% save('cross_bar','sx','-append')
+% save('cross_bar','sy','-append')
+% save('cross_bar','sz','-append')
+
+plot_vox_mesh(centri_vox,sx,sy,sz,ports,lumped_elements,materials,id_mat);
+
+[FFTCP,FFTCLp]=compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
+
+tic
+
+out=FFT_solvers_manager(solver_form,freq,escalings,incidence_selection,FFTCP,FFTCLp,...
+    diagonals,ports,lumped_elements,...
+    expansions,GMRES_settings,materials,li_mats,maps_Zs,use_Zs,QS_Rcc_FW);
+toc
+
+% writetable(struct2table(out,'AsArray',true), 'somefile.txt')
+
+figure
+semilogx(freq,real(squeeze(out.Z(1,1,:))),'b*',...
+    'linewidth',2)
+xlim([freq(1) 1e9])
+xlabel('Frequency [Hz]','fontsize',14)
+ylabel(['R [\Omega]'],'fontsize',14)
+legend('MATLAB')
+h_legend=legend;
+set(gca,'XTick',[10 10^2 10^3 10^4 10^5 10^6 10^7 10^8 10^9])
+xticklabels({'10^{1}','10^{2}','10^{3}','10^{4}','10^{5}','10^{6}','10^{7}','10^{8}','10^{9}'})
+set(h_legend,'Location','northwest','FontSize',14);
+set(gca,'fontsize',14);
+
+figure
+semilogx(freq,imag(squeeze(out.Z(1,1,:)))./(2*pi*freq.')*1e9,'b*',...
+    'linewidth',2)
+xlim([freq(1) 1e9])
+xlabel('Frequency [Hz]','fontsize',14)
+ylabel(['L [nH]'],'fontsize',14)
+legend('MATLAB')
+h_legend=legend;
+set(gca,'XTick',[10 10^2 10^3 10^4 10^5 10^6 10^7 10^8 10^9])
+xticklabels({'10^{1}','10^{2}','10^{3}','10^{4}','10^{5}','10^{6}','10^{7}','10^{8}','10^{9}'})
+set(h_legend,'Location','northwest','FontSize',14);
+set(gca,'fontsize',14);
+
+
+figure
+semilogx(freq,real(squeeze(out.Z(1,2,:))),'b*',...
+    'linewidth',2)
+xlim([freq(1) 1e9])
+xlabel('Frequency [Hz]','fontsize',14)
+ylabel(['R [\Omega]'],'fontsize',14)
+legend('MATLAB')
+h_legend=legend;
+set(gca,'XTick',[10 10^2 10^3 10^4 10^5 10^6 10^7 10^8 10^9])
+xticklabels({'10^{1}','10^{2}','10^{3}','10^{4}','10^{5}','10^{6}','10^{7}','10^{8}','10^{9}'})
+set(h_legend,'Location','northwest','FontSize',14);
+set(gca,'fontsize',14);
+
+figure
+semilogx(freq,imag(squeeze(out.Z(1,2,:)))./(2*pi*freq.')*1e9,'b*',...
+    'linewidth',2)
+xlim([freq(1) 1e9])
+xlabel('Frequency [Hz]','fontsize',14)
+ylabel(['L [nH]'],'fontsize',14)
+legend('MATLAB')
+h_legend=legend;
+set(gca,'XTick',[10 10^2 10^3 10^4 10^5 10^6 10^7 10^8 10^9])
+xticklabels({'10^{1}','10^{2}','10^{3}','10^{4}','10^{5}','10^{6}','10^{7}','10^{8}','10^{9}'})
+set(h_legend,'Location','northwest','FontSize',14);
+set(gca,'fontsize',14);
+
+
