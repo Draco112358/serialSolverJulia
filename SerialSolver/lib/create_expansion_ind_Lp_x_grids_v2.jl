@@ -1,3 +1,4 @@
+include("From_3D_to_1D.jl")
 using Base.Sort
 
 function create_expansion_ind_Lp_x_grids_v2(grids::Array{Array{Int64,3},1}, map::Array{Int64,2}, l_ind::Int64, mapping_Vox::Array{Int64,1}, nodes::Array{Float64,1}, nodes_red::Array{Float64,1})

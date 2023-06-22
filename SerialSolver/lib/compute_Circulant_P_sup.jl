@@ -1,3 +1,5 @@
+include("compute_row_P_sup.jl")
+
 using FFTW
 
 function compute_Circulant_P_sup(circulant_centers,escalings,Nx,Ny,Nz)

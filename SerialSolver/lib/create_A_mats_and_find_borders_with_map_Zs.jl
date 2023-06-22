@@ -1,3 +1,5 @@
+include("From_3D_to_1D.jl")
+
 function create_A_mats_and_find_borders_with_map_Zs(grids, mapping_Vox, mapAx, NAx, mapAy, NAy, mapAz, NAz, materials, nodes, nodes_red, nodes_reused_clean)
     num_grids = length(grids)
     Nx = size(grids[1], 1)
@@ -424,9 +426,9 @@ function create_A_mats_and_find_borders_with_map_Zs(grids, mapping_Vox, mapAx, N
     return (rAx, cAx, vAx, rAy, cAy, vAy, rAz, cAz, vAz, lix_mat, lix_border, liy_mat, liy_border, liz_mat, liz_border, maps_Zs)
 end
 
-using SparseArrays
+# using SparseArrays
 
-A = sparse([rAx; rAy+NAx; rAz+NAx+NAy], [cAx; cAy; cAz], [vAx; vAy; vAz], NAx+NAy+NAz, length(nodes_red))
+# A = sparse([rAx; rAy+NAx; rAz+NAx+NAy], [cAx; cAy; cAz], [vAx; vAy; vAz], NAx+NAy+NAz, length(nodes_red))
 
 function bin_search(num, A)
     index = 0

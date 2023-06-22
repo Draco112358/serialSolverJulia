@@ -1,4 +1,6 @@
-using SparseArrays
+include("build_Yle_S.jl")
+include("compute_Z_self.jl")
+using SparseArrays, SuperLU, IterativeSolvers, FFTW
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW)
     freq = freq .* escalings.freq
@@ -6,9 +8,9 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     Inner_Iter = GMRES_settings.Inner_Iter
     Outer_Iter = GMRES_settings.Outer_Iter
     # -------------------------------------------
-    m = size(incidence_selection.A, 1)
-    n = size(incidence_selection.A, 2)
-    ns = size(incidence_selection.Gamma, 2)
+    m = size(incidence_selection["A"], 1)
+    n = size(incidence_selection["A"], 2)
+    ns = size(incidence_selection["Gamma"], 2)
     w = 2 .* pi .* freq
     nfreq = length(w)
     is = zeros(n, 1)
@@ -39,7 +41,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         DZ .= DZ .+ 1im * w[k] * diagonals.Lp
         invZ = sparse(1:m, 1:m, 1 ./ DZ, m, m)
         # --------------------- preconditioner ------------------------
-        @time L1, U1, P1, Q1 = lu((Yle + incidence_selection.A' * invZ * incidence_selection.A + 1im * w[k] * incidence_selection.Gamma * invP * incidence_selection.Gamma'))
+        @time L1, U1, P1, Q1 = splu((Yle + incidence_selection["A"]' * invZ * incidence_selection["A"] + 1im * w[k] * incidence_selection["Gamma"] * invP * incidence_selection["Gamma"]'))
         # --------------------------------------------------------------
 
         for c1 = 1:size(ports.port_nodes, 1)
@@ -49,12 +51,13 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             is[n2] = -1 * escalings.Is
             tn = precond_3_3_Kt(L1, U1, P1, Q1, invZ, invP, incidence_selection, m, ns, is)
             if QS_Rcc_FW == 1
-                V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
+                #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
+                V, info = gmres!(x0, ComputeMatrixVector, tn , initially_zero=false,  reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, log=true, verbose=false)
             else
-                V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
+                #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
             end
-            tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
-            println("Flag ", flag, " - Number of iterations = ", tot_iter_number)
+            #tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
+            #println("Flag ", flag, " - Number of iterations = ", tot_iter_number)
             Vrest[:, c1] = V
             is[n1] = 0
             is[n2] = 0
@@ -79,8 +82,8 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
 end
 
 function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
-    m = size(incidence_selection.A, 1)
-    ns = size(incidence_selection.Gamma, 2)
+    m = size(incidence_selection["A"], 1)
+    ns = size(incidence_selection["Gamma"], 2)
     I = x[1:m]
     Q = x[m+1:m+ns]
     Phi = x[m+ns+1:end]
@@ -98,12 +101,12 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
         Ny = size(FFTCLp[cont, 1], 2) ÷ 2
         Nz = size(FFTCLp[cont, 1], 3) ÷ 2
         Ired = I[ind_aux_Lp[cont]]
-        I_exp = expansions.mat_map_Lp[cont, 1] * Ired
+        I_exp = expansions["mat_map_Lp"][cont, 1] * Ired
         CircKT = reshape(I_exp, Nx, Ny, Nz)
         Chi = ifft(FFTCLp[cont, 1] .* fft(CircKT, [2 * Nx, 2Ny, 2Nz]))
-        Y1[ind_aux_Lp[cont]] = Y1[ind_aux_Lp[cont]] + expansions.mat_map_Lp[cont, 1]' * reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz)
+        Y1[ind_aux_Lp[cont]] = Y1[ind_aux_Lp[cont]] + expansions["mat_map_Lp"][cont, 1]' * reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz)
     end
-    Y1 = 1im * w * Y1 + DZ .* I + incidence_selection.A * Phi
+    Y1 = 1im * w * Y1 + DZ .* I + incidence_selection["A"] * Phi
     # ---------------- P * Q ---------------------------------------------
     Y2 = zeros(ns)
     for cont1 = 1:3
@@ -111,20 +114,20 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
             Nx = size(FFTCP[cont1, cont2], 1) ÷ 2
             Ny = size(FFTCP[cont1, cont2], 2) ÷ 2
             Nz = size(FFTCP[cont1, cont2], 3) ÷ 2
-            Q_exp = expansions.exp_P[cont1, cont2] * Q
+            Q_exp = expansions["exp_P"][cont1, cont2] * Q
             CircKT = reshape(Q_exp, Nx, Ny, Nz)
             Chi = ifft(FFTCP[cont1, cont2] .* fft(CircKT, [2 * Nx, 2 * Ny, 2 * Nz]))
-            Y2 = Y2 + expansions.exp_P[cont2, cont1].' * (reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1))
+            Y2 = Y2 + expansions["exp_P"][cont2, cont1].' * (reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1))
             if cont1 != cont2
-                Q_exp = expansions.exp_P[cont2, cont1] * Q
+                Q_exp = expansions["exp_P"][cont2, cont1] * Q
                 CircKT = reshape(Q_exp, Nx, Ny, Nz)
                 Chi = ifft(FFTCP[cont1, cont2] .* fft(CircKT, [2 * Nx, 2 * Ny, 2 * Nz]))
-                Y2 = Y2 + expansions.exp_P[cont1, cont2].' * (reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1))
+                Y2 = Y2 + expansions["exp_P"][cont1, cont2].' * (reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1))
             end
         end
     end
-    Y2 = Y2 - incidence_selection.Gamma.' * Phi
-    Y3 = -incidence_selection.A.' * I + Yle * Phi + 1im * w * (incidence_selection.Gamma * Q)
+    Y2 = Y2 - incidence_selection["Gamma"].' * Phi
+    Y3 = -incidence_selection["A"].' * I + Yle * Phi + 1im * w * (incidence_selection["Gamma"] * Q)
     MatrixVector = precond_3_3_vector(L1, U1, P1, Q1, invZ, invP, incidence_selection, w, Y1, Y2, Y3)
     return MatrixVector
 end
@@ -136,8 +139,8 @@ function precond_3_3_Kt(L1, U1, P1, Q1, invZ, invP, incidence_selection, n1, n2,
     i3 = n1+n2+1:n1+n2+n3
     Y = zeros(n1 + n2 + n3, 1)
     M5 = Q1 * (U1 \ (L1 \ (P1 * X3)))
-    Y[i1] = Y[i1] - invZ * (incidence_selection.A * M5)
-    Y[i2] = Y[i2] + invP * (incidence_selection.Gamma.' * M5)
+    Y[i1] = Y[i1] - invZ * (incidence_selection["A"] * M5)
+    Y[i2] = Y[i2] + invP * (incidence_selection["Gamma"].' * M5)
     Y[i3] = Y[i3] + M5
     return Y
 end
@@ -151,16 +154,16 @@ function precond_3_3_vector(L1,U1,P1,Q1,invZ,invP,incidence_selection,w,X1,X2,X3
     i3=n1+n2+1:n1+n2+n3
     Y=zeros(n1+n2+n3,1)
     M1 = invZ*X1
-    M2 = (Q1*(U1\(L1\(P1*(incidence_selection.A.'*M1)))))
+    M2 = (Q1*(U1\(L1\(P1*(incidence_selection["A"].'*M1)))))
     M3 = invP*X2
-    M4 = (Q1*(U1\(L1\(P1*(incidence_selection.Gamma*M3)))))
+    M4 = (Q1*(U1\(L1\(P1*(incidence_selection["Gamma"]*M3)))))
     M5 = Q1*(U1\(L1\(P1*X3)))
-    Y[i1] .= Y[i1] .+ invZ*X1 .- invZ*(incidence_selection.A*M2)
-    Y[i1] .= Y[i1] .+ 1im*w*(invZ*(incidence_selection.A*M4))
-    Y[i1] .= Y[i1] .- invZ*(incidence_selection.A*M5)
-    Y[i2] .= Y[i2] .+ invP*(incidence_selection.Gamma.'*M2)
-    Y[i2] .= Y[i2] .+ invP*X2 .- 1im*w*invP*(incidence_selection.Gamma.'*M4)
-    Y[i2] .= Y[i2] .+ invP*(incidence_selection.Gamma.'*M5)
+    Y[i1] .= Y[i1] .+ invZ*X1 .- invZ*(incidence_selection["A"]*M2)
+    Y[i1] .= Y[i1] .+ 1im*w*(invZ*(incidence_selection["A"]*M4))
+    Y[i1] .= Y[i1] .- invZ*(incidence_selection["A"]*M5)
+    Y[i2] .= Y[i2] .+ invP*(incidence_selection["Gamma"].'*M2)
+    Y[i2] .= Y[i2] .+ invP*X2 .- 1im*w*invP*(incidence_selection["Gamma"].'*M4)
+    Y[i2] .= Y[i2] .+ invP*(incidence_selection["Gamma"].'*M5)
     Y[i3] .= Y[i3] .+ M2
     Y[i3] .= Y[i3] .- 1im*w*M4
     Y[i3] .= Y[i3] .+ M5

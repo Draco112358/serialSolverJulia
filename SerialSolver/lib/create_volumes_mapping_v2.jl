@@ -1,3 +1,5 @@
+include("From_3D_to_1D.jl")
+
 function create_volumes_mapping_v2(grids)
     num_grids = length(grids)
     Nx, Ny, Nz = size(grids[1])

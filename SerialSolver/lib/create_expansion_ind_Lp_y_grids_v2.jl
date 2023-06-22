@@ -1,3 +1,4 @@
+include("From_3D_to_1D.jl")
 using Base.Sort: searchsortedfirst
 
 function create_expansion_ind_Lp_y_grids_v2(grids, map, l_ind, mapping_Vox, nodes, nodes_red)

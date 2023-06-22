@@ -1,3 +1,4 @@
+include("From_3D_to_1D.jl")
 using LinearAlgebra
 
 function create_mapping_Az_v2(grids, mapping_Vox, nodes, nodes_red)

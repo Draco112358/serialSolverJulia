@@ -124,10 +124,13 @@ function compute_diagonals(escalings, materials, sx, sy, sz, lix_mat, liy_mat, l
     diag_Lp_x[i2x] = Self_x2 * ones(length(i2x), 1)
     diag_Lp_y[i2y] = Self_y2 * ones(length(i2y), 1)
     diag_Lp_z[i2z] = Self_z2 * ones(length(i2z), 1)
-    diagonals.R = escaling_R * [Rx; Ry; Rz]
-    diagonals.Cd = escaling_Cd * [Cx; Cy; Cz]
-    diagonals.Lp = escaling_Lp * [diag_Lp_x; diag_Lp_y; diag_Lp_z]
-    diagonals.fc_Lp = escaling_Lp * ([diag_Lp_x; diag_Lp_y; diag_Lp_z] - [Self_x * ones(size(lix_aux, 1), 1); Self_y * ones(size(liy_aux, 1), 1); Self_z * ones(size(liz_aux, 1), 1)])
+    diagonals = Dict()
+    diagonals["R"] = escaling_R * [Rx; Ry; Rz]
+    diagonals["Cd"] = escaling_Cd * [Cx; Cy; Cz]
+    diagonals["Lp"] = escaling_Lp * [diag_Lp_x; diag_Lp_y; diag_Lp_z]
+    diagonals["fc_Lp"] = escaling_Lp * ([diag_Lp_x; diag_Lp_y; diag_Lp_z] - [Self_x * ones(size(lix_aux, 1), 1); Self_y * ones(size(liy_aux, 1), 1); Self_z * ones(size(liz_aux, 1), 1)])
+
+    return diagonals
 end
 
 function Lp_self(l, W, T)
@@ -147,4 +150,6 @@ function Lp_self(l, W, T)
         (ar + r + w + aw) * w^2 / ((ar + r) * (r + w) * (w + aw) * (aw + ar)) +
         (ar + aw + 1 + at) / ((ar + aw) * (aw + 1) * (1 + at) * (at + ar))) -
         1 / 20 * (1 / (r + ar) + 1 / (aw + ar) + 1 / (at + ar)))
+
+    return Lp_Self_Rect
 end

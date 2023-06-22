@@ -1,3 +1,5 @@
+include("From_3D_to_1D.jl")
+
 using LinearAlgebra
 
 function create_nodes_ref(grids, num_full_vox, external_grids, mapping_vols, dominant_list)

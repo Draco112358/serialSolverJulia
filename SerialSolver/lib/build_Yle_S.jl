@@ -1,3 +1,5 @@
+using SparseArrays
+
 function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, val_chiusura)
     le_nodes = vcat(lumped_elements.le_nodes[:, 1], lumped_elements.le_nodes[:, 2])
     port_nodes = vcat(ports.port_nodes[:, 1], ports.port_nodes[:, 2])

@@ -1,3 +1,5 @@
+include("From_3D_to_1D.jl")
+
 function build_centers_Lp_with_air(grids, centri_Vox_with_air)
     Nx = size(grids[1], 1)
     Ny = size(grids[1], 2)

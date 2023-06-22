@@ -1,3 +1,4 @@
+include("From_3D_to_1D.jl")
 using Base.Iterators
 
 function create_mapping_Ax_v2(grids, mapping_Vox, nodes, nodes_red)

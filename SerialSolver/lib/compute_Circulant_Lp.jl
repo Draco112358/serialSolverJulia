@@ -1,3 +1,7 @@
+include("compute_Lp_Voxels.jl")
+
+using FFTW
+
 function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     global enable_accuracy_Lp
     if isempty(enable_accuracy_Lp)
@@ -18,7 +22,7 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     if Nlx>0
         Lpx_row=escaling*compute_Lp_Voxels(circulant_centers.Lpx[1,:],circulant_centers.Lpx,sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpx_row[1]=0
-        FFTCLp[1,1]=fftn(store_circulant(Lpx_row,Nx-1,Ny,Nz))
+        FFTCLp[1,1]=fft(store_circulant(Lpx_row,Nx-1,Ny,Nz))
     else
         FFTCLp[1,1]=zeros(0,2*Ny,2*Nz)
         FFTCLp[1,2]=zeros(0,2*Ny,2*Nz)
@@ -27,7 +31,7 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     if Nly>0
         Lpy_row=escaling*compute_Lp_Voxels(circulant_centers.Lpy[1,:],circulant_centers.Lpy,sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpy_row[1]=0
-        FFTCLp[2,1]=fftn(store_circulant(Lpy_row,Nx,Ny-1,Nz))
+        FFTCLp[2,1]=fft(store_circulant(Lpy_row,Nx,Ny-1,Nz))
     else
         FFTCLp[2,1]=zeros(2*Nx,0,2*Nz)
         FFTCLp[2,2]=zeros(2*Nx,0,2*Nz)
@@ -36,7 +40,7 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     if Nlz>0
         Lpz_row=escaling*compute_Lp_Voxels(circulant_centers.Lpz[1,:],circulant_centers.Lpz,sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpz_row[1]=0
-        FFTCLp[3,1]=fftn(store_circulant(Lpz_row,Nx,Ny,Nz-1))
+        FFTCLp[3,1]=fft(store_circulant(Lpz_row,Nx,Ny,Nz-1))
     else
         FFTCLp[3,1]=zeros(2*Nx,2*Ny,0)
         FFTCLp[3,2]=zeros(2*Nx,2*Ny,0)
@@ -69,4 +73,6 @@ function store_circulant(row_Lp,Nx,Ny,Nz)
     Cout[i2x,i1y,i2z]=Circ[i3x,i1y,i3z]
     Cout[i1x,i2y,i2z]=Circ[i1x,i3y,i3z]
     Cout[i2x,i2y,i2z]=Circ[i3x,i3y,i3z]
+
+    return Cout
 end

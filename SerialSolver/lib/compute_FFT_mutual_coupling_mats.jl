@@ -1,3 +1,6 @@
+include("compute_Circulant_P_sup.jl")
+include("compute_Circulant_Lp.jl")
+
 function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, Nz, QS_Rcc_FW)
     FFTCP, FFTCLp = nothing, nothing
     if QS_Rcc_FW == 1

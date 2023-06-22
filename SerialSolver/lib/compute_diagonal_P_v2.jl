@@ -1,3 +1,5 @@
+include("compute_row_P_sup.jl")
+
 function compute_diagonal_P_v2(N1,N2,N3,escalings,sx,sy,sz)
     self_P=zeros(3,1)
     centro_vox=[0 0 0]
