@@ -6,5 +6,5 @@ function From_1D_to_3D( M, N, pos)
     k=k+1;
     j=j+1;
     i=i+1;
-    return i,j,k
+    return convert(Int64,i),convert(Int64,j),convert(Int64,k)
 end

@@ -1,9 +1,9 @@
-function round_ud(a,b)
-
+function round_ud(args...)
+    nargin = length(args)
     if nargin<2
-        out=round(a);
+        out=round.(args[1]);
     else
-        out=round(a*10^b)/10^b;
+        out=round.(args[1]*10^args[2])/10^args[2];
     end
     return out
 

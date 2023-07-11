@@ -1,6 +1,6 @@
+using LinearAlgebra
 function crossbar_250_structure_nodes_ports_definition()
     # import necessary libraries
-    using LinearAlgebra
     
     # define the port position in meters
     num_ports = 2

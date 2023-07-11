@@ -1,26 +1,26 @@
 include("compute_Lp_Voxels.jl")
+include("From_1D_to_3D.jl")
 
 using FFTW
 
 function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
-    global enable_accuracy_Lp
-    if isempty(enable_accuracy_Lp)
-        enable_accuracy_Lp=0
-    end
+    
+    
+    enable_accuracy_Lp=0
+    
     println("Lp computation started")
-    tic()
-    escaling=escalings.Lp
-    sx=circulant_centers.sx
-    sy=circulant_centers.sy
-    sz=circulant_centers.sz
-    FFTCLp=Vector{Any}(undef, 3, 2)
+    escaling=escalings["Lp"]
+    sx=circulant_centers["sx"]
+    sy=circulant_centers["sy"]
+    sz=circulant_centers["sz"]
+    FFTCLp=Array{Any}(undef, 3, 2)
     is_sym=false
     dc=1
-    Nlx=size(circulant_centers.Lpx,1)
-    Nly=size(circulant_centers.Lpy,1)
-    Nlz=size(circulant_centers.Lpz,1)
+    Nlx=size(circulant_centers["Lpx"],1)
+    Nly=size(circulant_centers["Lpy"],1)
+    Nlz=size(circulant_centers["Lpz"],1)
     if Nlx>0
-        Lpx_row=escaling*compute_Lp_Voxels(circulant_centers.Lpx[1,:],circulant_centers.Lpx,sx,sy,sz,sx,sy,sz,dc,is_sym)
+        Lpx_row=escaling*compute_Lp_Voxels(circulant_centers["Lpx"][1,:],circulant_centers["Lpx"],sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpx_row[1]=0
         FFTCLp[1,1]=fft(store_circulant(Lpx_row,Nx-1,Ny,Nz))
     else
@@ -29,7 +29,7 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     end
     dc=2
     if Nly>0
-        Lpy_row=escaling*compute_Lp_Voxels(circulant_centers.Lpy[1,:],circulant_centers.Lpy,sx,sy,sz,sx,sy,sz,dc,is_sym)
+        Lpy_row=escaling*compute_Lp_Voxels(circulant_centers["Lpy"][1,:],circulant_centers["Lpy"],sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpy_row[1]=0
         FFTCLp[2,1]=fft(store_circulant(Lpy_row,Nx,Ny-1,Nz))
     else
@@ -38,15 +38,15 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     end
     dc=3
     if Nlz>0
-        Lpz_row=escaling*compute_Lp_Voxels(circulant_centers.Lpz[1,:],circulant_centers.Lpz,sx,sy,sz,sx,sy,sz,dc,is_sym)
+        Lpz_row=escaling*compute_Lp_Voxels(circulant_centers["Lpz"][1,:],circulant_centers["Lpz"],sx,sy,sz,sx,sy,sz,dc,is_sym)
         Lpz_row[1]=0
         FFTCLp[3,1]=fft(store_circulant(Lpz_row,Nx,Ny,Nz-1))
     else
         FFTCLp[3,1]=zeros(2*Nx,2*Ny,0)
         FFTCLp[3,2]=zeros(2*Nx,2*Ny,0)
     end
-    time_Lp=toc()
-    println("Lp computation ended. Elapsed time = ", time_Lp)
+    # println("Lp computation ended. Elapsed time = ")
+    return FFTCLp
 end
 
 function store_circulant(row_Lp,Nx,Ny,Nz)

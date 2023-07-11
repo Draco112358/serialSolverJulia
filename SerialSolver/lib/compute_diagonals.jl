@@ -1,7 +1,7 @@
 function compute_diagonals(escalings, materials, sx, sy, sz, lix_mat, liy_mat, liz_mat, lix_border, liy_border, liz_border)
-    escaling_R = escalings.R
-    escaling_Cd = escalings.Cd
-    escaling_Lp = escalings.Lp
+    escaling_R = escalings["R"]
+    escaling_Cd = escalings["Cd"]
+    escaling_Lp = escalings["Lp"]
     eps0 = 8.854187816997944e-12
     for cont in range(1,length(materials))
         sigmar = materials[cont].sigmar
@@ -29,72 +29,72 @@ function compute_diagonals(escalings, materials, sx, sy, sz, lix_mat, liy_mat, l
             materials[cont].Cz = eps0 * (epsr - 1) * sy * sx / (0.5 * sz)
         end
     end
-    Rx = zeros(length(lix_border), 4)
-    Ry = zeros(length(liy_border), 4)
-    Rz = zeros(length(liz_border), 4)
-    Cx = zeros(length(lix_border), 4)
-    Cy = zeros(length(liy_border), 4)
-    Cz = zeros(length(liz_border), 4)
+    Rx = zeros(size(lix_border,1), 4)
+    Ry = zeros(size(liy_border,1), 4)
+    Rz = zeros(size(liz_border,1), 4)
+    Cx = zeros(size(lix_border,1), 4)
+    Cy = zeros(size(liy_border,1), 4)
+    Cz = zeros(size(liz_border,1), 4)
     for cont in range(1,length(materials))
         if materials[cont].Rx != 0
             ind_m = findall(x -> x == cont, lix_mat[:, 1])
-            Rx[ind_m, 1] = materials[cont].Rx
+            Rx[ind_m, 1] .= materials[cont].Rx
             ind_m = findall(x -> x == cont, lix_mat[:, 2])
-            Rx[ind_m, 2] = materials[cont].Rx
+            Rx[ind_m, 2] .= materials[cont].Rx
             ind_m = findall(x -> x == cont, lix_border[:, 1])
-            Rx[ind_m, 3] = materials[cont].Rx
+            Rx[ind_m, 3] .= materials[cont].Rx
             ind_m = findall(x -> x == cont, lix_border[:, 2])
-            Rx[ind_m, 4] = +materials[cont].Rx
+            Rx[ind_m, 4] .= +materials[cont].Rx
         end
         if materials[cont].Cx != 0
             ind_m = findall(x -> x == cont, lix_mat[:, 1])
-            Cx[ind_m, 1] = materials[cont].Cx
+            Cx[ind_m, 1] .= materials[cont].Cx
             ind_m = findall(x -> x == cont, lix_mat[:, 2])
-            Cx[ind_m, 2] = materials[cont].Cx
+            Cx[ind_m, 2] .= materials[cont].Cx
             ind_m = findall(x -> x == cont, lix_border[:, 1])
-            Cx[ind_m, 3] = materials[cont].Cx
+            Cx[ind_m, 3] .= materials[cont].Cx
             ind_m = findall(x -> x == cont, lix_border[:, 2])
-            Cx[ind_m, 4] = +materials[cont].Cx
+            Cx[ind_m, 4] .= +materials[cont].Cx
         end
         if materials[cont].Ry != 0
             ind_m = findall(x -> x == cont, liy_mat[:, 1])
-            Ry[ind_m, 1] = materials[cont].Ry
+            Ry[ind_m, 1] .= materials[cont].Ry
             ind_m = findall(x -> x == cont, liy_mat[:, 2])
-            Ry[ind_m, 2] = materials[cont].Ry
+            Ry[ind_m, 2] .= materials[cont].Ry
             ind_m = findall(x -> x == cont, liy_border[:, 1])
-            Ry[ind_m, 3] = materials[cont].Ry
+            Ry[ind_m, 3] .= materials[cont].Ry
             ind_m = findall(x -> x == cont, liy_border[:, 2])
-            Ry[ind_m, 4] = +materials[cont].Ry
+            Ry[ind_m, 4] .= +materials[cont].Ry
         end
         if materials[cont].Cy != 0
             ind_m = findall(x -> x == cont, liy_mat[:, 1])
-            Cy[ind_m, 1] = materials[cont].Cy
+            Cy[ind_m, 1] .= materials[cont].Cy
             ind_m = findall(x -> x == cont, liy_mat[:, 2])
-            Cy[ind_m, 2] = materials[cont].Cy
+            Cy[ind_m, 2] .= materials[cont].Cy
             ind_m = findall(x -> x == cont, liy_border[:, 1])
-            Cy[ind_m, 3] = materials[cont].Cy
+            Cy[ind_m, 3] .= materials[cont].Cy
             ind_m = findall(x -> x == cont, liy_border[:, 2])
-            Cy[ind_m, 4] = +materials[cont].Cy
+            Cy[ind_m, 4] .= +materials[cont].Cy
         end
         if materials[cont].Rz != 0
             ind_m = findall(x -> x == cont, liz_mat[:, 1])
-            Rz[ind_m, 1] = materials[cont].Rz
+            Rz[ind_m, 1] .= materials[cont].Rz
             ind_m = findall(x -> x == cont, liz_mat[:, 2])
-            Rz[ind_m, 2] = materials[cont].Rz
+            Rz[ind_m, 2] .= materials[cont].Rz
             ind_m = findall(x -> x == cont, liz_border[:, 1])
-            Rz[ind_m, 3] = materials[cont].Rz
+            Rz[ind_m, 3] .= materials[cont].Rz
             ind_m = findall(x -> x == cont, liz_border[:, 2])
-            Rz[ind_m, 4] = +materials[cont].Rz
+            Rz[ind_m, 4] .= +materials[cont].Rz
         end
         if materials[cont].Cz != 0
             ind_m = findall(x -> x == cont, liz_mat[:, 1])
-            Cz[ind_m, 1] = materials[cont].Cz
+            Cz[ind_m, 1] .= materials[cont].Cz
             ind_m = findall(x -> x == cont, liz_mat[:, 2])
-            Cz[ind_m, 2] = materials[cont].Cz
+            Cz[ind_m, 2] .= materials[cont].Cz
             ind_m = findall(x -> x == cont, liz_border[:, 1])
-            Cz[ind_m, 3] = materials[cont].Cz
+            Cz[ind_m, 3] .= materials[cont].Cz
             ind_m = findall(x -> x == cont, liz_border[:, 2])
-            Cz[ind_m, 4] = +materials[cont].Cz
+            Cz[ind_m, 4] .= +materials[cont].Cz
         end
     end
     lix_aux = ceil.(Int, lix_border[:, 1] / 100) + ceil.(Int, lix_border[:, 2] / 100)

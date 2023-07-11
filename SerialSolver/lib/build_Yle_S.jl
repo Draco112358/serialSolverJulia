@@ -8,9 +8,9 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
     ind_r = zeros(NNz_max)
     ind_c = zeros(NNz_max)
     vals = zeros(NNz_max)
-    nlum = size(lumped_elements.le_nodes)
+    nlum = size(lumped_elements.le_nodes, 1)
     cont = 0
-    for c1 = 1:nlum
+    for c1 in range(1,nlum)
         n1 = lumped_elements.le_nodes[c1, 1]
         n2 = lumped_elements.le_nodes[c1, 2]
         ind1 = findall(ind_r .== n1)
@@ -21,19 +21,19 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
             ind_r[cont] = n1
             ind_c[cont] = n1
             if lumped_elements.type[c1] == 3
-                vals[cont] = 1 / (1im * w * lumped_elements.value[c1])
+                vals[cont] = 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[cont] = 1im * w * lumped_elements.value[c1]
+                vals[cont] = 1im * w * lumped_elements.value[c1][1]
             else
-                vals[cont] = 1 / lumped_elements.value[c1]
+                vals[cont] = 1 / lumped_elements.value[c1][1]
             end
         else
             if lumped_elements.type[c1] == 3
-                vals[ind[1]] += 1 / (1im * w * lumped_elements.value[c1])
+                vals[ind[1]] += 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[ind[1]] += 1im * w * lumped_elements.value[c1]
+                vals[ind[1]] += 1im * w * lumped_elements.value[c1][1]
             else
-                vals[ind[1]] += 1 / lumped_elements.value[c1]
+                vals[ind[1]] += 1 / lumped_elements.value[c1][1]
             end
         end
         ind1 = findall(ind_r .== n2)
@@ -44,19 +44,19 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
             ind_r[cont] = n2
             ind_c[cont] = n2
             if lumped_elements.type[c1] == 3
-                vals[cont] = 1 / (1im * w * lumped_elements.value[c1])
+                vals[cont] = 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[cont] = 1im * w * lumped_elements.value[c1]
+                vals[cont] = 1im * w * lumped_elements.value[c1][1]
             else
-                vals[cont] = 1 / lumped_elements.value[c1]
+                vals[cont] = 1 / lumped_elements.value[c1][1]
             end
         else
             if lumped_elements.type[c1] == 3
-                vals[ind[1]] += 1 / (1im * w * lumped_elements.value[c1])
+                vals[ind[1]] += 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[ind[1]] += 1im * w * lumped_elements.value[c1]
+                vals[ind[1]] += 1im * w * lumped_elements.value[c1][1]
             else
-                vals[ind[1]] += 1 / lumped_elements.value[c1]
+                vals[ind[1]] += 1 / lumped_elements.value[c1][1]
             end
         end
         ind1 = findall(ind_r .== n1)
@@ -67,19 +67,19 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
             ind_r[cont] = n1
             ind_c[cont] = n2
             if lumped_elements.type[c1] == 3
-                vals[cont] = -1 / (1im * w * lumped_elements.value[c1])
+                vals[cont] = -1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[cont] = -1im * w * lumped_elements.value[c1]
+                vals[cont] = -1im * w * lumped_elements.value[c1][1]
             else
-                vals[cont] = -1 / lumped_elements.value[c1]
+                vals[cont] = -1 / lumped_elements.value[c1][1]
             end
         else
             if lumped_elements.type[c1] == 3
-                vals[ind[1]] -= 1 / (1im * w * lumped_elements.value[c1])
+                vals[ind[1]] -= 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[ind[1]] -= 1im * w * lumped_elements.value[c1]
+                vals[ind[1]] -= 1im * w * lumped_elements.value[c1][1]
             else
-                vals[ind[1]] -= 1 / lumped_elements.value[c1]
+                vals[ind[1]] -= 1 / lumped_elements.value[c1][1]
             end
         end
         ind1 = findall(ind_r .== n2)
@@ -90,24 +90,24 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
             ind_r[cont] = n2
             ind_c[cont] = n1
             if lumped_elements.type[c1] == 3
-                vals[cont] = -1 / (1im * w * lumped_elements.value[c1])
+                vals[cont] = -1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[cont] = -1im * w * lumped_elements.value[c1]
+                vals[cont] = -1im * w * lumped_elements.value[c1][1]
             else
-                vals[cont] = -1 / lumped_elements.value[c1]
+                vals[cont] = -1 / lumped_elements.value[c1][1]
             end
         else
             if lumped_elements.type[c1] == 3
-                vals[ind[1]] -= 1 / (1im * w * lumped_elements.value[c1])
+                vals[ind[1]] -= 1 / (1im * w * lumped_elements.value[c1][1])
             elseif lumped_elements.type[c1] == 2
-                vals[ind[1]] -= 1im * w * lumped_elements.value[c1]
+                vals[ind[1]] -= 1im * w * lumped_elements.value[c1][1]
             else
-                vals[ind[1]] -= 1 / lumped_elements.value[c1]
+                vals[ind[1]] -= 1 / lumped_elements.value[c1][1]
             end
         end
     end
-    nlum = size(ports.port_nodes)
-    for c1 = 1:nlum
+    nlum = size(ports.port_nodes, 1)
+    for c1 in 1:nlum
         n1 = ports.port_nodes[c1, 1]
         n2 = ports.port_nodes[c1, 2]
         ind1 = findall(ind_r .== n1)
@@ -169,6 +169,6 @@ function build_Yle_S(lumped_elements, grounding_nodes, ports, escalings, n, w, v
             vals[ind[1]] += 1 / 1e12
         end
     end
-    Yle = sparse(ind_r[1:cont], ind_c[1:cont], vals[1:cont] * escalings.Yle, n, n)
+    Yle = sparse(ind_r[1:cont], ind_c[1:cont], vals[1:cont] * escalings["Yle"], n, n)
     return Yle
 end

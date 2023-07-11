@@ -4,7 +4,8 @@ include("create_volume_centers.jl")
 include("create_Grids_externals.jl")
 include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
-using JSON, SimpleWebsockets
+
+using JSON, DelimitedFiles, JSON3
 using MLUtils: unsqueeze
 
 
@@ -126,7 +127,11 @@ Base.@kwdef mutable struct material
     conductivity = dict_element["conductivity"]
     tangent_delta_conductivity = dict_element["tangent_delta_conductivity"]
     custom_conductivity = dict_element["custom_conductivity"]
-    epsr = nothing
+    sigmar = dict_element["conductivity"]
+    tan_D = dict_element["tangent_delta_permittivity"]
+    eps_re = dict_element["permittivity"]
+    mur = dict_element["permeability"]
+    epsr = 1
     Rx = nothing
     Ry = nothing
     Rz = nothing
@@ -140,6 +145,8 @@ mutable struct port_def
     port_end
     port_voxels
     port_nodes
+    surf_s_port_nodes
+    surf_e_port_nodes
 end
 
 mutable struct le_def
@@ -149,11 +156,13 @@ mutable struct le_def
     le_end
     le_voxels
     le_nodes
+    surf_s_le_nodes
+    surf_e_le_nodes
 end
                 
 
-function read_ports(inputData::Dict, escal)
-    @assert inputData isa Dict
+function read_ports(inputData, escal)
+    #@assert inputData isa Dict
     ports = inputData["ports"]
     port_objects = [el for el in ports]
     input_positions = []
@@ -183,15 +192,15 @@ function read_ports(inputData::Dict, escal)
     for i in output_positions
         push!(out_pos, unsqueeze([i], dims=2))
     end
-    ports_out = port_def(inp_pos, out_pos,zeros(Int64, (N_PORTS, 2)),zeros(Int64,(N_PORTS, 2)))
+    ports_out = port_def(inp_pos, out_pos,zeros(Int64, (N_PORTS, 2)),zeros(Int64,(N_PORTS, 2)), Array{Any}(undef,0), Array{Any}(undef,0))
     
     return ports_out
 end
 
 
-function read_lumped_elements(inputData::Dict, escal)
+function read_lumped_elements(inputData, escal)
     
-    @assert inputData isa Dict
+    #@assert inputData isa Dict
     
     lumped_elements = inputData["lumped_elements"]
     
@@ -202,7 +211,7 @@ function read_lumped_elements(inputData::Dict, escal)
     types = []
     N_LUMPED_ELEMENTS = length(lumped_elements_objects)
     if N_LUMPED_ELEMENTS == 0
-        lumped_elements_out = le_def(zeros(0),zeros(Int64, 0),zeros((0, 3)),zeros((0, 3)),zeros(Int64, (0, 2)),zeros(Int64, (0, 2)))
+        lumped_elements_out = le_def(zeros(0),zeros(Int64, 0),zeros((0, 3)),zeros((0, 3)),zeros(Int64, (0, 2)),zeros(Int64, (0, 2)), Array{Any}(undef,0), Array{Any}(undef,0))
         @assert length(input_positions)==N_LUMPED_ELEMENTS && length(output_positions)==N_LUMPED_ELEMENTS && length(values)==N_LUMPED_ELEMENTS && length(types)==N_LUMPED_ELEMENTS
     else
         for lumped_element_object in lumped_elements_objects
@@ -232,12 +241,12 @@ function read_lumped_elements(inputData::Dict, escal)
     
         value = []
         for i in values
-            push!(value, unsqueeze([i], dims=2))
+            push!(value, i[1])
         end
 
         type = []
         for i in types
-            push!(type, unsqueeze([i], dims=2))
+            push!(type, i[1])
         end
 
         in_pos = []
@@ -250,20 +259,26 @@ function read_lumped_elements(inputData::Dict, escal)
             push!(out_pos, unsqueeze([i], dims=2))
         end
 
-        lumped_elements_out = le_def(value,type,in_pos, out_pos,zeros(Int64, (N_LUMPED_ELEMENTS, 2)), (Int64, (N_LUMPED_ELEMENTS, 2)))
+        lumped_elements_out = le_def(value,type,in_pos, out_pos,zeros(Int64, (N_LUMPED_ELEMENTS, 2)), (Int64, (N_LUMPED_ELEMENTS, 2)), Array{Any}(undef,0), Array{Any}(undef,0))
 
     return lumped_elements_out
 end
 
-function read_materials(inputData::Dict)
-    @assert inputData isa Dict
+function read_materials(inputData)
+    #@assert inputData isa Dict
     materials = inputData["materials"]
+    # for el in materials
+    #     el["sigmar"] = 9.4e6
+    #     el["tan_D"] = 0
+    #     el["eps_re"] = 1
+    #     el["mur"] = 1
+    # end
     materials_objects = [material(dict_element=el) for el in materials]
     return materials_objects
 end
 
-function read_signals(inputData::Dict)
-    @assert inputData isa Dict
+function read_signals(inputData)
+    #@assert inputData isa Dict
     signals = inputData["signals"]
     signals_objects = [el for el in signals]
     return signals_objects
@@ -299,10 +314,11 @@ function getEscalFrom(unit)
 end
 
     
-function doSolving(mesherOutput, solverInput, solverAlgoParams, client)    
+function doSolving(mesherOutput, solverInput, solverAlgoParams)    
 
-    inputDict = Dict(solverInput)
     mesherDict = Dict(mesherOutput)
+    #println(typeof(mesherOutput))
+    inputDict = Dict(solverInput)
     unit = solverInput["unit"]
     escal = getEscalFrom(unit)
     
@@ -337,8 +353,13 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, client)
 
 
     frequencies = inputDict["frequencies"]
-    
-    n_freq = length(frequencies)
+    freq = Array{Float64}(undef, 1, 10)
+    for i in range(1, length(frequencies))
+        freq[1,i] = frequencies[i]
+    end
+    #freq = convert(Array{Float64}, freq)
+
+    n_freq = length(freq)
     
     PORTS = read_ports(inputDict, escal)
 
@@ -355,89 +376,122 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams, client)
     inner_Iter = solverAlgoParams["innerIteration"]
     outer_Iter = solverAlgoParams["outerIteration"]
     tol = solverAlgoParams["convergenceThreshold"]*ones((n_freq))
-    ind_low_freq= filter(i -> !iszero(frequencies[i]), findall(freq -> freq<1e5, frequencies))
+    ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
     tol[ind_low_freq] .= 1e-7
     
 
     GMRES_settings = GMRES_set(inner_Iter,outer_Iter,tol)
     QS_Rcc_FW=1; # 1 QS, 2 Rcc, 3 Taylor
     use_escalings=1;
-    # # END SETTINGS----------------------------------------------
 
-    # A, Gamma, ports, lumped_elements, sup_centers, sup_type, bars_Lp_x, bars_Lp_y, bars_Lp_z, diag_R, diag_Cd = generate_interconnection_matrices_and_centers(
-    #     sx,sy,sz,grids,Nx,Ny,Nz,MATERIALS,PORTS,L_ELEMENTS,origin)  
-
-
-    # println("Time for P")
-    # P_mat = @time compute_P_matrix(sup_centers,sup_type,sx,sy,sz)
-    # send(client, "P Computing Completed")
-    
-    # println("Time for Lp")
-    # Lp_x_mat = @time compute_Lp_matrix_1(bars_Lp_x,sy,sz)
-    # send(client, "LPx Computing Completed")
-    # Lp_y_mat = @time compute_Lp_matrix_2(bars_Lp_y,sx,sz)
-    # send(client, "LPy Computing Completed")
-    # Lp_z_mat = @time compute_Lp_matrix_3(bars_Lp_z,sx,sy)
-    # send(client, "LPz Computing Completed")
-    
-
-    # solver_input = Dict(
-    #     "frequencies" => frequencies,
-    #     "A" => collect(A),
-    #     "Gamma" => collect(Gamma),
-    #     "P" => P_mat,
-    #     "Lp_x" => Lp_x_mat,
-    #     "Lp_y" => Lp_y_mat,
-    #     "Lp_z" => Lp_z_mat,
-    #     "diag_R" => diag_R,
-    #     "diag_Cd" => diag_Cd,
-    #     "ports" => ports,
-    #     "lumped_elements" => lumped_elements
-    # )
-    # writedlm("/tmp/frequencies.txt", frequencies)
-    # writedlm("/tmp/A.txt", collect(A))
-    # writedlm("/tmp/M.txt", collect(Gamma))
-    # writedlm("/tmp/Lp_x.txt", Lp_x_mat)
-    # writedlm("/tmp/Lp_y.txt", Lp_y_mat)
-    # writedlm("/tmp/Lp_z.txt", Lp_z_mat)
-    # writedlm("/tmp/P.txt", P_mat)
-    # writedlm("/tmp/diag_R.txt", diag_R)
-    # writedlm("/tmp/diag_Cd.txt", diag_Cd)
-
-    # ports_data = Dict(
-    #     "start" => ports.port_start,
-    #     "end" => ports.port_end,
-    #     "nodes" => ports.port_nodes,
-    #     "voxels" => ports.port_voxels
-    # )
-
-    # lumped_data = Dict(
-    #     "start" => lumped_elements.le_start,
-    #     "end" => lumped_elements.le_end,
-    #     "nodes" => lumped_elements.le_nodes,
-    #     "voxels" => lumped_elements.le_voxels
-    # )
-
-    # ports_data_dict = Dict(
-    #     "ports_data" => ports_data,
-    #     "lumped_data" => lumped_data
-    # )
-    
-    # writedlm("/tmp/ports_data_copper_loop.txt", ports_data_dict)
-
-    # println("Time for solver algo")
-    # Z, Y, S = @time Quasi_static_iterative_solver(frequencies,A,Gamma,P_mat,Lp_x_mat,Lp_y_mat,Lp_z_mat,diag_R,diag_Cd,ports,lumped_elements,GMRES_settings, client)
-    # close(client)
-    mapping_vols,num_centri=create_volumes_mapping_v2(grids);
+    mapping_vols,num_centri=create_volumes_mapping_v2(grids)
     #centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
-    centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_centri,sx,sy,sz);
+    centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_centri,sx,sy,sz,origin);
+
 
     externals_grids=create_Grids_externals(grids);
-    escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS);
-
-    FFTCP,FFTCLp=compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
-
-    out=FFT_solver_QS_S_type(frequencies,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
+    escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
+    FFTCP,FFTCLp= @time compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
+    #println(FFTCLp)
+    println("time for solver")
+    out= @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     #println(out)
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end
+
+
+function doSolvingTest(inputDict, mesherDict)    
+
+    
+    
+    unit = "mm"
+    escal = getEscalFrom(unit)
+    
+    
+    sx, sy, sz = mesherDict["cell_size"]["cell_size_x"]*1000*escal,mesherDict["cell_size"]["cell_size_y"]*1000*escal,mesherDict["cell_size"]["cell_size_z"]*1000*escal
+   
+
+    origin_x = mesherDict["origin"]["origin_x"]
+    origin_y = mesherDict["origin"]["origin_y"]
+    origin_z = mesherDict["origin"]["origin_z"]
+
+    origin = (origin_x,origin_y,origin_z)
+    Nx = Int64(mesherDict["n_cells"]["n_cells_x"])
+    Ny = Int64(mesherDict["n_cells"]["n_cells_y"])
+    Nz = Int64(mesherDict["n_cells"]["n_cells_z"])
+
+    testarray = []
+    for (index, value) in mesherDict["mesher_matrices"]
+        push!(testarray, copy(value))
+    end
+
+
+    grids = []
+
+    for values in testarray
+        if (length(testarray) == 1)
+            grids = unsqueeze([values], dims=2)
+        else
+            push!(grids, unsqueeze(values, dims=2))
+        end
+    end
+
+
+    frequencies = inputDict["frequencies"]
+    freq = []
+    foreach(x->push!(freq, x), frequencies)
+    freq = convert(Array{Float64}, freq)
+    
+    n_freq = length(freq)
+    
+    PORTS = read_ports(inputDict, escal)
+
+    L_ELEMENTS = read_lumped_elements(inputDict, escal)
+
+    MATERIALS = read_materials(inputDict) 
+    SIGNALS = read_signals(inputDict)
+    
+    
+    
+    
+    # # START SETTINGS--------------------------------------------
+    
+    inner_Iter = 100
+    outer_Iter = 1
+    tol = 0.0001*ones((n_freq))
+    ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
+    tol[ind_low_freq] .= 1e-7
+    
+
+    GMRES_settings = GMRES_set(inner_Iter,outer_Iter,tol)
+    QS_Rcc_FW=1; # 1 QS, 2 Rcc, 3 Taylor
+    use_escalings=1;
+
+    mapping_vols,num_centri=create_volumes_mapping_v2(grids)
+    #centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
+    centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_centri,sx,sy,sz,origin);
+
+
+    externals_grids=create_Grids_externals(grids);
+    escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
+
+    FFTCP,FFTCLp=compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
+
+    println("time for solver")
+    out= @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
+    #println(out)
+    return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
+end
+
+function test() 
+    json_string = read("/tmp/mesherOutput.json", String)
+    mesherOutput = JSON3.read(json_string)
+    json_string_2 = read("/tmp/solverInput.json", String)
+    solverInput = JSON3.read(json_string_2)
+    # json_string_3 = read("/tmp/solverAlgoParams.json", String)
+    # solverAlgoParams = JSON3.read(json_string_3)
+    doSolvingTest(solverInput, mesherOutput)
+    
+end
+
+#test()

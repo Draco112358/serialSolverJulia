@@ -4,24 +4,23 @@ using FFTW
 
 function compute_Circulant_P_sup(circulant_centers,escalings,Nx,Ny,Nz)
     println("P computation started")
-    sx = circulant_centers.sx
-    sy = circulant_centers.sy
-    sz = circulant_centers.sz
+    sx = circulant_centers["sx"]
+    sy = circulant_centers["sy"]
+    sz = circulant_centers["sz"]
     FFTCP = Array{Any}(undef, 3, 3)
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p12_se[1,:], circulant_centers.p12_se, sx, sy, sz, 1, 1)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p12_se"][1,:], circulant_centers["p12_se"], sx, sy, sz, 1, 1)
     FFTCP[1,1] = fft(store_circulant(row_P, Nx, Ny+1, Nz))
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p34_se[1,:], circulant_centers.p34_se, sx, sy, sz, 3, 3)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p34_se"][1,:], circulant_centers["p34_se"], sx, sy, sz, 3, 3)
     FFTCP[2,2] = fft(store_circulant(row_P, Nx+1, Ny, Nz))
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p56_se[1,:], circulant_centers.p56_se, sx, sy, sz, 5, 5)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p56_se"][1,:], circulant_centers["p56_se"], sx, sy, sz, 5, 5)
     FFTCP[3,3] = fft(store_circulant(row_P, Nx, Ny, Nz+1))
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p1234[1,:], circulant_centers.p1234, sx, sy, sz, 3, 2)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p1234"][1,:], circulant_centers["p1234"], sx, sy, sz, 3, 2)
     FFTCP[1,2] = fft(store_circulant(row_P, 2*(Nx+1)-1, 2*(Ny+1)-1, Nz))
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p1256[1,:], circulant_centers.p1256, sx, sy, sz, 5, 2)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p1256"][1,:], circulant_centers["p1256"], sx, sy, sz, 5, 2)
     FFTCP[1,3] = fft(store_circulant(row_P, Nx, 2*(Ny+1)-1, 2*(Nz+1)-1))
-    row_P = escalings.P * compute_row_P_sup(circulant_centers.p3456[1,:], circulant_centers.p3456, sx, sy, sz, 5, 4)
+    row_P = escalings["P"] * compute_row_P_sup(circulant_centers["p3456"][1,:], circulant_centers["p3456"], sx, sy, sz, 5, 4)
     FFTCP[2,3] = fft(store_circulant(row_P, 2*(Nx+1)-1, Ny, 2*(Nz+1)-1))
-    time_P = time()
-    println("P computation ended. Elapsed time = ", time_P)
+    # println("P computation ended. Elapsed time = ")
     return FFTCP
 end
 
