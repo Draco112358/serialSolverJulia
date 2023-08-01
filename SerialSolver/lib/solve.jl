@@ -5,7 +5,7 @@ include("create_Grids_externals.jl")
 include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 
-using JSON, DelimitedFiles, JSON3
+using JSON, DelimitedFiles, JSON3, MAT
 using MLUtils: unsqueeze
 
 
@@ -317,11 +317,11 @@ end
 function doSolving(mesherOutput, solverInput, solverAlgoParams)    
 
     mesherDict = Dict(mesherOutput)
-    #println(typeof(mesherOutput))
     inputDict = Dict(solverInput)
     unit = solverInput["unit"]
     escal = getEscalFrom(unit)
-    
+
+    println(Threads.nthreads())
     
     sx, sy, sz = mesherDict["cell_size"]["cell_size_x"]*1000*escal,mesherDict["cell_size"]["cell_size_y"]*1000*escal,mesherDict["cell_size"]["cell_size_z"]*1000*escal
    
@@ -353,7 +353,7 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
 
 
     frequencies = inputDict["frequencies"]
-    freq = Array{Float64}(undef, 1, 10)
+    freq = Array{Float64}(undef, 1, length(frequencies))
     for i in range(1, length(frequencies))
         freq[1,i] = frequencies[i]
     end
@@ -376,8 +376,8 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     inner_Iter = solverAlgoParams["innerIteration"]
     outer_Iter = solverAlgoParams["outerIteration"]
     tol = solverAlgoParams["convergenceThreshold"]*ones((n_freq))
-    ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
-    tol[ind_low_freq] .= 1e-7
+    # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, freq))
+    # tol[ind_low_freq] .= 1e-7
     
 
     GMRES_settings = GMRES_set(inner_Iter,outer_Iter,tol)
@@ -391,10 +391,12 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
 
     externals_grids=create_Grids_externals(grids);
     escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
+    
     FFTCP,FFTCLp= @time compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
     #println(FFTCLp)
+    
     println("time for solver")
-    out= @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
+    out = @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     #println(out)
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end
@@ -478,7 +480,7 @@ function doSolvingTest(inputDict, mesherDict)
     FFTCP,FFTCLp=compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
 
     println("time for solver")
-    out= @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
+    out= FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     #println(out)
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end

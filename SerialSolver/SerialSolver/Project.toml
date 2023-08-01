@@ -1,0 +1,7 @@
+[deps]
+FourierTools = "b18b359b-aebc-45ac-a139-9c0ccbb2871e"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
+MATLAB = "10e44e05-a98a-55b3-a45b-ba969058deb6"
+Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
