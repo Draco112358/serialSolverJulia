@@ -28,6 +28,6 @@ function create_volume_centers(grids, map, num_centri, sx, sy, sz, min_v)
 end
 
 function From_3D_to_1D(i, j, k, M, N)
-    pos = (k - 1) * M * N + (j - 1) * M + i
+    pos = ((k - 1) * M * N) + ((j - 1) * M) + i
     return pos
 end

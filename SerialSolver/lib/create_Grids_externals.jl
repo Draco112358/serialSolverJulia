@@ -15,7 +15,7 @@ function create_Grids_externals(grids)
     for cont2=1:Ny
         for cont3=1:Nz
             for k=1:num_grids
-                if(grids[k][1][cont2][cont3])
+                if (grids[k][1][cont2][cont3])
                     OUTPUTgrids[k,3][1,cont2,cont3]=true
                     if Nx>1
                         if !(grids[k][2][cont2][cont3])
@@ -44,15 +44,13 @@ function create_Grids_externals(grids)
         end
     end
     for cont=1:Nx
-        for cont2=1
-            for cont3=1:Nz
-                for k=1:num_grids
-                    if(grids[k][cont][cont2][cont3])
-                        OUTPUTgrids[k,1][cont,cont2,cont3]=true
-                        if Ny>1
-                            if !(grids[k][cont][cont2+1][cont3])
-                                OUTPUTgrids[k,2][cont,cont2,cont3]=true
-                            end
+        for cont3=1:Nz
+            for k=1:num_grids
+                if (grids[k][cont][1][cont3])
+                    OUTPUTgrids[k,1][cont,1,cont3]=true
+                    if Ny>1
+                        if !(grids[k][cont][2][cont3])
+                            OUTPUTgrids[k,2][cont,1,cont3]=true
                         end
                     end
                 end
@@ -77,14 +75,12 @@ function create_Grids_externals(grids)
     end
     for cont=1:Nx
         for cont2=1:Ny
-            for cont3=1
-                for k=1:num_grids
-                    if(grids[k][cont][cont2][cont3])
-                        OUTPUTgrids[k,5][cont,cont2,cont3]=true
-                        if Nz>1
-                            if !(grids[k][cont][cont2][cont3+1])
-                                OUTPUTgrids[k,6][cont,cont2,cont3]=true
-                            end
+            for k=1:num_grids
+                if(grids[k][cont][cont2][1])
+                    OUTPUTgrids[k,5][cont,cont2,1]=true
+                    if Nz>1
+                        if !(grids[k][cont][cont2][2])
+                            OUTPUTgrids[k,6][cont,cont2,1]=true
                         end
                     end
                 end
@@ -95,7 +91,7 @@ function create_Grids_externals(grids)
         for cont2=1:Ny
             for cont3=Nz
                 for k=1:num_grids
-                    if(grids[k][cont][cont2][cont3])
+                    if (grids[k][cont][cont2][cont3])
                         OUTPUTgrids[k,6][cont,cont2,cont3]=true
                         if Nz>1
                             if !(grids[k][cont][cont2][cont3-1])
@@ -111,7 +107,7 @@ function create_Grids_externals(grids)
         for cont2=1:Ny
             for cont3=1:Nz
                 for k=1:num_grids
-                    if(grids[k][cont][cont2][cont3])
+                    if (grids[k][cont][cont2][cont3])
                         if !(grids[k][cont-1][cont2][cont3])
                             OUTPUTgrids[k,3][cont,cont2,cont3]=true
                         end
@@ -143,7 +139,7 @@ function create_Grids_externals(grids)
         for cont2=1:Ny
             for cont3=2:Nz-1
                 for k=1:num_grids
-                    if(grids[k][cont][cont2][cont3])
+                    if (grids[k][cont][cont2][cont3])
                         if !(grids[k][cont][cont2][cont3-1])
                             OUTPUTgrids[k,5][cont,cont2,cont3]=true
                         end

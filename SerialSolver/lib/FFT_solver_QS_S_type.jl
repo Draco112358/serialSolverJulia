@@ -5,8 +5,8 @@ using LinearMaps, MAT, LinearAlgebra, Krylov, KrylovMethods
 
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW)
-    FFTW.set_num_threads(Threads.nthreads())
-    BLAS.set_num_threads(Threads.nthreads())
+    #FFTW.set_num_threads(Threads.nthreads())
+    #BLAS.set_num_threads(Threads.nthreads())
     # FFTCP[2,1] = FFTCP[1,1]
     # FFTCP[3,1] = FFTCP[1,1]
     # FFTCP[3,2] = FFTCP[1,1]

@@ -384,7 +384,13 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     QS_Rcc_FW=1; # 1 QS, 2 Rcc, 3 Taylor
     use_escalings=1;
 
+    
+   
+    #display(jsonmesher)
+    println(typeof(grids))
+
     mapping_vols,num_centri=create_volumes_mapping_v2(grids)
+    
     #centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
     centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_centri,sx,sy,sz,origin);
 
@@ -392,6 +398,13 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     externals_grids=create_Grids_externals(grids);
     escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
     
+    # matwrite("/Users/edgardovittoria/Downloads/matfile.mat", Dict(
+    #     "grids" =>  grids,
+    #     "num_full_vox" => num_centri,
+    #     "sx" => sx,
+    #     "sy" => sy,
+    #     "sz" => sz
+    # ))
     FFTCP,FFTCLp= @time compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
     #println(FFTCLp)
     
