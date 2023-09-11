@@ -3,7 +3,7 @@ include("compute_row_P_sup.jl")
 using FFTW
 
 function compute_Circulant_P_sup(circulant_centers,escalings,Nx,Ny,Nz)
-    println("P computation started")
+    #println("P computation started")
     sx = circulant_centers["sx"]
     sy = circulant_centers["sy"]
     sz = circulant_centers["sz"]

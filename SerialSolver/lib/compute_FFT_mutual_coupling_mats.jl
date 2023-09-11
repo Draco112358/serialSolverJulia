@@ -4,8 +4,8 @@ include("compute_Circulant_Lp.jl")
 function compute_FFT_mutual_coupling_mats(circulant_centers, escalings, Nx, Ny, Nz, QS_Rcc_FW)
     FFTCP, FFTCLp = nothing, nothing
     if QS_Rcc_FW == 1
-        FFTCLp = @time compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz)
-        FFTCP = @time compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz)
+        FFTCP = compute_Circulant_P_sup(circulant_centers, escalings, Nx, Ny, Nz)
+        FFTCLp = compute_Circulant_Lp(circulant_centers, escalings, Nx, Ny, Nz)
         
     elseif QS_Rcc_FW == 2
         distance_method = "RCC" # RCC AVG MIN

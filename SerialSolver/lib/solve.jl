@@ -5,7 +5,7 @@ include("create_Grids_externals.jl")
 include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 
-using JSON, DelimitedFiles, JSON3, MAT
+using JSON, DelimitedFiles, JSON3, MAT, JLD2
 using MLUtils: unsqueeze
 
 
@@ -320,8 +320,12 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     inputDict = Dict(solverInput)
     unit = solverInput["unit"]
     escal = getEscalFrom(unit)
+    #write("/tmp/mesherOutput.json", mesherDict)
+    #write("/tmp/solverInput.json", inputDict)
+    #@save "/Users/edgardovittoria/Downloads/wptTest.jl" mesherDict inputDict unit
 
-    println(Threads.nthreads())
+    
+
     
     sx, sy, sz = mesherDict["cell_size"]["cell_size_x"]*1000*escal,mesherDict["cell_size"]["cell_size_y"]*1000*escal,mesherDict["cell_size"]["cell_size_z"]*1000*escal
    
@@ -376,7 +380,7 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     inner_Iter = solverAlgoParams["innerIteration"]
     outer_Iter = solverAlgoParams["outerIteration"]
     tol = solverAlgoParams["convergenceThreshold"]*ones((n_freq))
-    # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, freq))
+    # ind_low_freq= filter(i -> !iszero(freq[i]), findall(f -> f<1e5, frequencies))
     # tol[ind_low_freq] .= 1e-7
     
 
@@ -387,8 +391,6 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     
    
     #display(jsonmesher)
-    println(typeof(grids))
-
     mapping_vols,num_centri=create_volumes_mapping_v2(grids)
     
     #centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
@@ -405,9 +407,12 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     #     "sy" => sy,
     #     "sz" => sz
     # ))
+   
     FFTCP,FFTCLp= @time compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
     #println(FFTCLp)
-    
+    # write("/Users/edgardovittoria/Downloads/wpt.json", Dict(
+        
+    # ))
     println("time for solver")
     out = @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     #println(out)
@@ -417,8 +422,6 @@ end
 
 function doSolvingTest(inputDict, mesherDict)    
 
-    
-    
     unit = "mm"
     escal = getEscalFrom(unit)
     
@@ -474,8 +477,8 @@ function doSolvingTest(inputDict, mesherDict)
     inner_Iter = 100
     outer_Iter = 1
     tol = 0.0001*ones((n_freq))
-    ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
-    tol[ind_low_freq] .= 1e-7
+    #ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
+    #tol[ind_low_freq] .= 1e-7
     
 
     GMRES_settings = GMRES_set(inner_Iter,outer_Iter,tol)
@@ -503,8 +506,10 @@ function test()
     mesherOutput = JSON3.read(json_string)
     json_string_2 = read("/tmp/solverInput.json", String)
     solverInput = JSON3.read(json_string_2)
-    # json_string_3 = read("/tmp/solverAlgoParams.json", String)
-    # solverAlgoParams = JSON3.read(json_string_3)
+    # # json_string_3 = read("/tmp/solverAlgoParams.json", String)
+    # # solverAlgoParams = JSON3.read(json_string_3)
+    # doSolvingTest(solverInput, mesherOutput)
+    
     doSolvingTest(solverInput, mesherOutput)
     
 end

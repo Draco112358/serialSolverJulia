@@ -20,7 +20,7 @@ nfreq=length(w);
 
 is=zeros(n,1);
 
-S=zeros(size(ports,1),size(ports,1),length(freq));
+S=zeros(size(ports.port_nodes,1),size(ports.port_nodes,1),length(freq));
 
 Vrest=zeros(m+n+ns,size(ports.port_nodes,1));
 
@@ -47,6 +47,7 @@ for k=1:nfreq
     
     Z_self=compute_Z_self(diagonals.R,diagonals.Cd,w(k));
     
+    
     Zs=escalings.R*(Zs_info.Zs*sqrt(w(k)/escalings.freq));
     
     ind_to_put_zero_Z_self=find((real(Zs(Zs_info.surface_edges))-real(Z_self(Zs_info.surface_edges)))>0);
@@ -62,11 +63,12 @@ for k=1:nfreq
     DZ=DZ+1j*w(k)*diagonals.Lp;
     
     invZ=sparse(1:m,1:m,1./DZ,m,m);
-    
     % --------------------- preconditioner ------------------------
     
     tic
     [L1,U1,P1,Q1]=lu((Yle+incidence_selection.A.'*invZ*incidence_selection.A+1j*w(k)*incidence_selection.Gamma*invP*incidence_selection.Gamma.'));
+    
+ 
     time_Lu=toc;
     disp(['time LU ' num2str(time_Lu)]);
     
@@ -82,8 +84,8 @@ for k=1:nfreq
         
         tn=precond_3_3_Kt(L1,U1,P1,Q1,invZ,invP,incidence_selection,m,ns,is);
         
+        
         if QS_Rcc_FW==1
-            
             [V,flag,relres,iter,resvec]=...
                 gmres(@ComputeMatrixVector,tn,Inner_Iter,GMRES_settings.tol(k),Outer_Iter,[],[],...
                 Vrest(:,c1),w(k),incidence_selection,...
@@ -108,7 +110,6 @@ for k=1:nfreq
             
             n3=ports.port_nodes(c2,1);
             n4=ports.port_nodes(c2,2);
-            
             if c1==c2
                 S(c1,c2,k)=(2*(V(m+ns+n3)-V(m+ns+n4))-R_chiusura)/R_chiusura;
             else

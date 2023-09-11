@@ -1,12 +1,13 @@
 include("build_Yle_S.jl")
 include("compute_Z_self.jl")
+include("gmres_custom.jl")
 using SparseArrays, SuperLU, IterativeSolvers, FFTW, FourierTools
 using LinearMaps, MAT, LinearAlgebra, Krylov, KrylovMethods
 
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW)
-    #FFTW.set_num_threads(Threads.nthreads())
-    #BLAS.set_num_threads(Threads.nthreads())
+    FFTW.set_num_threads(3)
+    BLAS.set_num_threads(3)
     # FFTCP[2,1] = FFTCP[1,1]
     # FFTCP[3,1] = FFTCP[1,1]
     # FFTCP[3,2] = FFTCP[1,1]
@@ -47,7 +48,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     R_chiusura = 50.0
     
     for k = 1:nfreq
-        println("Freq n=$k - Freq Tot=$nfreq")
+        #println("Freq n=$k - Freq Tot=$nfreq")
         # Questa parte la vedremo in futuro (ignoratela per ora tanto QS_Rcc_FW è impostato ad 1)-------------------------------------------------------
         if QS_Rcc_FW == 2
             FFTCLp_rebuilted = compute_Circulant_Lp_Rcc(FFTCLp, escalings, freq[k] ./ escalings["freq"])
@@ -71,7 +72,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         
         # --------------------- preconditioner ------------------------
         SS = Yle+(prod_real_complex(transpose(incidence_selection["A"]) , prod_complex_real(invZ , incidence_selection["A"])) + 1im * w[k] * incidence_selection["Gamma"] * invP * transpose(incidence_selection["Gamma"]))
-        @time F = LinearAlgebra.lu(SS)
+        F = LinearAlgebra.lu(SS)
         
         # --------------------------------------------------------------
         for c1 = 1:size(ports.port_nodes, 1)
@@ -81,24 +82,27 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             is[n2] = -1 * escalings["Is"]
             tn = precond_3_3_Kt(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, is)
     
-            products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
-            prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
-            x0::Vector{ComplexF64}=Vrest[:, c1];
+            # products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
+            # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
+            #x0::Vector{ComplexF64}=Vrest[:, c1];
+        
             if QS_Rcc_FW == 1
-                #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings.tol, Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
+                tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
+                println("Flag $flag - Number of iterations = $tot_iter_number")
+                #V, info = IterativeSolvers.gmres!(Vrest[:,c1], prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
+                #V, info = IterativeSolvers.gmres(prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
+                #println(info)
                 
-                # V, info = IterativeSolvers.gmres!(x0,prodts, tn , reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
-                # println(info)
-                
-                (V, stats) = Krylov.gmres(prodts,tn,x0;restart=false, memory=Outer_Iter, reorthogonalization=false,rtol=GMRES_settings.tol[k], itmax=Inner_Iter,verbose=1, history=false)
+                # (V, stats) = Krylov.gmres(prodts,tn;restart=false, memory=Outer_Iter, reorthogonalization=true,rtol=GMRES_settings.tol[k], itmax=Inner_Iter,verbose=1, history=false)
             
-                if (stats.solved==true)        
-                    println("convergence reached, number of iterations: "*string(stats.niter))
-                else
-                    println("convergence not reached, number of iterations: "*string(stats.niter))
-                end
+                # if (stats.solved==true)        
+                #     println("convergence reached, number of iterations: "*string(stats.niter))
+                # else
+                #     println("convergence not reached, number of iterations: "*string(stats.niter))
+                # end
 
-                # V,flag,err,iter,resvec = KrylovMethods.gmres(prodts,tn,Inner_Iter,tol=GMRES_settings.tol[k],maxIter=1,x=x0,out=0)
+                #V,flag,err,iter,resvec = KrylovMethods.gmres(prodts,tn,Inner_Iter,tol=GMRES_settings.tol[k],maxIter=1,x=x0,out=1)
 
                 # if (flag==0)        
                 #     println("convergence reached, number of iterations: "*string(length(resvec)))
@@ -111,7 +115,6 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
                 #V, flag, relres, iter, resvec = gmres(ComputeMatrixVector, tn, Inner_Iter, GMRES_settings.tol[k], Outer_Iter, [], [], Vrest[:, c1], w[k], incidence_selection, FFTCP_rebuilted, FFTCLp_rebuilted, DZ, Yle, expansions, invZ, invP, L1, U1, P1, Q1)
             end
             
-            #println(info)
             Vrest[:, c1] = V
             is[n1] = 0
             is[n2] = 0
@@ -135,8 +138,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     return out
 end
 
-function ComputeMatrixVector(x_in, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu)
-    x::Vector{ComplexF64}=x_in[:,1];
+function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu)
     m = size(incidence_selection["A"], 1)
     ns = size(incidence_selection["Gamma"], 2)
     I = x[1:m]

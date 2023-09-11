@@ -8,7 +8,7 @@ function compute_Circulant_Lp(circulant_centers,escalings,Nx,Ny,Nz)
     
     enable_accuracy_Lp=0
     
-    println("Lp computation started")
+    #println("Lp computation started")
     escaling=escalings["Lp"]
     sx=circulant_centers["sx"]
     sy=circulant_centers["sy"]
