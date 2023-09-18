@@ -5,7 +5,7 @@ clear global
 
 % input setup -------------------------------------------------------------
 % k=1;
-% materials{k}.sigmar=5.8e7;   materials{k}.eps_re=1;      materials{k}.tan_D=0; materials{k}.mur=1;k=k+1;
+% materials{k}.sigmar=9.4e6;   materials{k}.eps_re=1;      materials{k}.tan_D=0; materials{k}.mur=1;k=k+1;
 % 
 % ports=crossbar_structure_nodes_ports_definition();
 % lumped_elements=crossbar_structure_lumped_elements_definition();
@@ -48,8 +48,8 @@ load('/Users/edgardovittoria/Downloads/matfile.mat')
 % % -------------------------------------------------------------------------
 % 
 % % -------Solver setup ---------------------------------------------------
-% n_freq=15;
-% freq=logspace(log10(1e4),log10(1e9),n_freq);
+% n_freq=10;
+% freq=logspace(log10(1e6),log10(1e9),n_freq);
 % 
 % GMRES_settings.Inner_Iter=150;
 % GMRES_settings.Outer_Iter=1;

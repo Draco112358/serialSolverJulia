@@ -67,23 +67,23 @@ for k=1:nfreq
     
     tic
     [L1,U1,P1,Q1]=lu((Yle+incidence_selection.A.'*invZ*incidence_selection.A+1j*w(k)*incidence_selection.Gamma*invP*incidence_selection.Gamma.'));
-    
+ 
  
     time_Lu=toc;
     disp(['time LU ' num2str(time_Lu)]);
     
     % --------------------------------------------------------------
     
-    
+
     for c1=1:size(ports.port_nodes,1)
         
         n1=ports.port_nodes(c1,1);
         n2=ports.port_nodes(c1,2);
         is(n1)=1*escalings.Is;
         is(n2)=-1*escalings.Is;
-        
+
         tn=precond_3_3_Kt(L1,U1,P1,Q1,invZ,invP,incidence_selection,m,ns,is);
-        
+
         
         if QS_Rcc_FW==1
             [V,flag,relres,iter,resvec]=...

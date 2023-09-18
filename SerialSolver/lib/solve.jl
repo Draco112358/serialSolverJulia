@@ -5,7 +5,7 @@ include("create_Grids_externals.jl")
 include("compute_FFT_mutual_coupling_mats.jl")
 include("mesher_FFT.jl")
 
-using JSON, DelimitedFiles, JSON3, MAT, JLD2
+using JSON, DelimitedFiles, JSON3, MAT, JLD2, ProfileView
 using MLUtils: unsqueeze
 
 
@@ -316,15 +316,13 @@ end
     
 function doSolving(mesherOutput, solverInput, solverAlgoParams)    
 
-    mesherDict = Dict(mesherOutput)
-    inputDict = Dict(solverInput)
+    mesherDict = mesherOutput
+    inputDict = solverInput
     unit = solverInput["unit"]
     escal = getEscalFrom(unit)
-    #write("/tmp/mesherOutput.json", mesherDict)
-    #write("/tmp/solverInput.json", inputDict)
+    #JSON3.write("/Users/edgardovittoria/Downloads/mesherOutput.json", mesherDict)
+    #JSON3.write("/Users/edgardovittoria/Downloads/solverInput.json", inputDict)
     #@save "/Users/edgardovittoria/Downloads/wptTest.jl" mesherDict inputDict unit
-
-    
 
     
     sx, sy, sz = mesherDict["cell_size"]["cell_size_x"]*1000*escal,mesherDict["cell_size"]["cell_size_y"]*1000*escal,mesherDict["cell_size"]["cell_size_z"]*1000*escal
@@ -390,10 +388,8 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
 
     
    
-    #display(jsonmesher)
     mapping_vols,num_centri=create_volumes_mapping_v2(grids)
     
-    #centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_full_vox,sx,sy,sz);
     centri_vox,id_mat=create_volume_centers(grids,mapping_vols,num_centri,sx,sy,sz,origin);
 
 
@@ -409,13 +405,11 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
     # ))
    
     FFTCP,FFTCLp= @time compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
-    #println(FFTCLp)
-    # write("/Users/edgardovittoria/Downloads/wpt.json", Dict(
-        
-    # ))
+
+    #inputSolve = matread("/Users/edgardovittoria/Downloads/matfile.mat")
     println("time for solver")
     out = @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
-    #println(out)
+    #ProfileView.view()
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end
 
@@ -477,8 +471,8 @@ function doSolvingTest(inputDict, mesherDict)
     inner_Iter = 100
     outer_Iter = 1
     tol = 0.0001*ones((n_freq))
-    #ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
-    #tol[ind_low_freq] .= 1e-7
+    # ind_low_freq= filter(i -> !iszero(freq[i]), findall(freq -> freq<1e5, freq))
+    # tol[ind_low_freq] .= 1e-7
     
 
     GMRES_settings = GMRES_set(inner_Iter,outer_Iter,tol)
@@ -491,20 +485,27 @@ function doSolvingTest(inputDict, mesherDict)
 
 
     externals_grids=create_Grids_externals(grids);
+    #escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
+    #ports,lumped_elements=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
     escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info=mesher_FFT(use_escalings,MATERIALS,sx,sy,sz,grids,centri_vox,externals_grids,mapping_vols,PORTS,L_ELEMENTS, origin);
-
     FFTCP,FFTCLp=compute_FFT_mutual_coupling_mats(circulant_centers,escalings,Nx,Ny,Nz,QS_Rcc_FW);
+
+    inputSolve = matread("/Users/edgardovittoria/Downloads/matfile.mat")
+    #println("time for solver")
+    #port_def(inp_pos, out_pos,zeros(Int64, (N_PORTS, 2)),zeros(Int64,(N_PORTS, 2)), Array{Any}(undef,0), Array{Any}(undef,0))
+    #out = @time FFT_solver_QS_S_type(freq,inputSolve["escalings"],inputSolve["incidence_selection"],inputSolve["FFTCP"],inputSolve["FFTCLp"],inputSolve["diagonals"],ports,lumped_elements,inputSolve["expansions"],GMRES_settings,inputSolve["Zs_info"],QS_Rcc_FW);
 
     println("time for solver")
     out= FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
     #println(out)
+    ProfileView.view()
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end
 
 function test() 
-    json_string = read("/tmp/mesherOutput.json", String)
+    json_string = read("/Users/edgardovittoria/Downloads/mesherOutput.json", String)
     mesherOutput = JSON3.read(json_string)
-    json_string_2 = read("/tmp/solverInput.json", String)
+    json_string_2 = read("/Users/edgardovittoria/Downloads/solverInput.json", String)
     solverInput = JSON3.read(json_string_2)
     # # json_string_3 = read("/tmp/solverAlgoParams.json", String)
     # # solverAlgoParams = JSON3.read(json_string_3)

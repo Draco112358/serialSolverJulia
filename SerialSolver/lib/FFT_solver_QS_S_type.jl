@@ -1,8 +1,8 @@
 include("build_Yle_S.jl")
 include("compute_Z_self.jl")
 include("gmres_custom.jl")
-using SparseArrays, SuperLU, IterativeSolvers, FFTW, FourierTools
-using LinearMaps, MAT, LinearAlgebra, Krylov, KrylovMethods
+using SparseArrays, SuperLU, IterativeSolvers, FFTW, FourierTools, MKL, Pardiso
+using LinearMaps, MAT, LinearAlgebra, Krylov, KrylovMethods, ILUZero, MATLAB
 
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW)
@@ -47,6 +47,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     invP = sparse(1:ns, 1:ns, 1 ./ diagonals["P"],ns,ns)
     R_chiusura = 50.0
     
+    
     for k = 1:nfreq
         #println("Freq n=$k - Freq Tot=$nfreq")
         # Questa parte la vedremo in futuro (ignoratela per ora tanto QS_Rcc_FW è impostato ad 1)-------------------------------------------------------
@@ -72,7 +73,21 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         
         # --------------------- preconditioner ------------------------
         SS = Yle+(prod_real_complex(transpose(incidence_selection["A"]) , prod_complex_real(invZ , incidence_selection["A"])) + 1im * w[k] * incidence_selection["Gamma"] * invP * transpose(incidence_selection["Gamma"]))
-        F = LinearAlgebra.lu(SS)
+        SS = mxarray(SS)
+        mat"[L,U,P,Q]=lu($SS)"
+        L1 = @mget L
+        U1 = @mget U
+        P1 = @mget P
+        Q1 = @mget Q
+        #F = @time splu(SS)
+        #F = @time lu(SS)
+        F = SS
+        #F = @time ilu0(SS)
+        ps = PardisoSolver()
+        #set_iparm!(ps,1,1)
+        #set_iparm!(ps, 8, 10)
+        #set_matrixtype!(ps, Pardiso.COMPLEX_NONSYM)
+        #set_solver!(ps, Pardiso.ITERATIVE_SOLVER)
         
         # --------------------------------------------------------------
         for c1 = 1:size(ports.port_nodes, 1)
@@ -80,21 +95,27 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             n2 = convert(Int64,ports.port_nodes[c1, 2])
             is[n1] = 1 * escalings["Is"]
             is[n2] = -1 * escalings["Is"]
-            tn = precond_3_3_Kt(F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, is)
+            tn = precond_3_3_Kt(L1, U1, P1, Q1,F, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], m, ns, is, ps)
     
-            # products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
-            # prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
-            #x0::Vector{ComplexF64}=Vrest[:, c1];
+            products_law = x ->   ComputeMatrixVector(x, w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, ps , L1, U1, P1, Q1)
+            prodts = LinearMap{ComplexF64}(products_law, n + m + ns, n + m + ns)
+            x0::Vector{ComplexF64}=Vrest[:, c1];
         
             if QS_Rcc_FW == 1
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings.tol, Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings.tol[k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, ps, L1, U1, P1, Q1)
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
-                println("Flag $flag - Number of iterations = $tot_iter_number")
-                #V, info = IterativeSolvers.gmres!(Vrest[:,c1], prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
+                if (flag == 0)
+                    println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
+                end
+
+                if (flag == 1)
+                    println("Flag $flag - Iteration = $k - Convergence not reached, number of iterations:$Inner_Iter")
+                end
+                #V, info = IterativeSolvers.gmres!(x0, prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
                 #V, info = IterativeSolvers.gmres(prodts, tn; reltol=GMRES_settings.tol[k], restart=Inner_Iter, maxiter=Inner_Iter, initially_zero=false, log=true, verbose=true)
                 #println(info)
                 
-                # (V, stats) = Krylov.gmres(prodts,tn;restart=false, memory=Outer_Iter, reorthogonalization=true,rtol=GMRES_settings.tol[k], itmax=Inner_Iter,verbose=1, history=false)
+                # (V, stats) = Krylov.gmres(prodts,tn,x0;restart=false, memory=Outer_Iter, reorthogonalization=false,rtol=GMRES_settings.tol[k], itmax=Inner_Iter,verbose=1, history=false)
             
                 # if (stats.solved==true)        
                 #     println("convergence reached, number of iterations: "*string(stats.niter))
@@ -138,7 +159,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     return out
 end
 
-function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu)
+function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, ps, L1, U1, P1, Q1)
     m = size(incidence_selection["A"], 1)
     ns = size(incidence_selection["Gamma"], 2)
     I = x[1:m]
@@ -191,32 +212,37 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
     end
     Y2 = Y2 - prod_real_complex(transpose(incidence_selection["Gamma"]) , Phi)
     Y3 = -1.0*(prod_real_complex(transpose(incidence_selection["A"]) , I)) + prod_real_complex(Yle , Phi) + 1im * w * (prod_real_complex(incidence_selection["Gamma"] , Q))
-    MatrixVector = precond_3_3_vector(lu, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], w, Y1, Y2, Y3)
+    MatrixVector = precond_3_3_vector(L1, U1, P1, Q1, lu, invZ, invP, incidence_selection["A"], incidence_selection["Gamma"], w, Y1, Y2, Y3, ps)
     return MatrixVector
 end
 
 
-function precond_3_3_Kt(F, invZ, invP, A,Gamma, n1,n2, X3)
-
+function precond_3_3_Kt(L1, U1, P1, Q1,F, invZ, invP, A,Gamma, n1,n2, X3, ps)
     n3 = length(X3)
 
     i1 = range(1, stop=n1)
     i2 = range(n1+1, stop=n1 + n2)
     i3 = range(n1 + n2 + 1, stop=n1 + n2 + n3)
 
-    Y = zeros(ComplexF64, n1 + n2 + n3)
+    Y = zeros(ComplexF64, n1 + n2 + n3, 1)
 
-    M5 = F\X3
+    M5 = Q1*(U1\(L1\(P1*X3)));
+    #M5 = F\X3
+    #M5 = zeros(ComplexF64, size(X3)[1], size(X3)[2])
+    
+    #Pardiso.solve!(ps, M5, F, convert(Matrix{ComplexF64}, X3))
 
     Y[i1] .= Y[i1] .- 1.0*(prod_real_complex(invZ, prod_real_complex(A, M5)))
     Y[i2] .= Y[i2] .+ (prod_real_complex(invP, prod_real_complex(transpose(Gamma), M5)))
     Y[i3] .= Y[i3] .+ M5
 
+
     return Y
+    
 end
 
-function precond_3_3_vector(F,invZ,invP,A,Gamma,w,X1,X2,X3)
-
+function precond_3_3_vector(L1, U1, P1, Q1, F,invZ,invP,A,Gamma,w,X1,X2,X3,ps)
+    
     n1=length(X1)
     n2=length(X2)
     n3=length(X3)
@@ -226,12 +252,17 @@ function precond_3_3_vector(F,invZ,invP,A,Gamma,w,X1,X2,X3)
     i3=range(n1+n2+1,stop=n1+n2+n3)
 
     Y=zeros(ComplexF64 , n1+n2+n3)
-
     M1 = prod_real_complex(invZ, X1)
-    M2 = F\(prod_real_complex(transpose(A), M1))  
-    M3 = prod_real_complex(invP, X2)   
-    M4 = F\prod_real_complex(Gamma, M3) 
-    M5 = F\X3
+    M2 = (Q1*(U1\(L1\(P1*(prod_real_complex(transpose(A), M1))))))
+    #M2 = F\(prod_real_complex(transpose(A), M1))  
+    #M2 = solve(ps, F, prod_real_complex(transpose(A), M1))
+    M3 = prod_real_complex(invP, X2) 
+    M4 = (Q1*(U1\(L1\(P1*(prod_real_complex(Gamma, M3))))));
+    M5 = Q1*(U1\(L1\(P1*X3)));  
+    #M4 = F\prod_real_complex(Gamma, M3) 
+    #M4 = solve(ps, F, prod_real_complex(Gamma, M3))
+    #M5 = F\X3
+    #M5 = solve(ps, F, X3)
     
     Y[i1] .= Y[i1] .+ M1-1.0*(prod_real_complex((invZ),prod_real_complex((A), M2)))
     Y[i1] .= Y[i1] .+ 1im*w*(prod_real_complex((invZ),prod_real_complex((A), M4)))
@@ -246,6 +277,8 @@ function precond_3_3_vector(F,invZ,invP,A,Gamma,w,X1,X2,X3)
     Y[i3] .= Y[i3] .+ M5
     
     Y=convert(Array{Complex{Float64}}, Y)
+    
+    
     return Y
 end
 

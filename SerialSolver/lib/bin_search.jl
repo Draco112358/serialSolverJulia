@@ -16,5 +16,5 @@ function bin_search(num, A)
             end
         end
     end
-    return index
+    return convert(Int64,index)
 end

@@ -55,7 +55,7 @@ function mesher_FFT(use_escalings,materials,sx,sy,sz,grids,centri_vox,externals_
     li_mats = Dict()
     nodes, nodes_red, nodes_reused_clean = create_nodes_ref(grids, num_full_vox, externals_grids, mapping_vols, dominant_list)
     expansions, incidence_selection["Gamma"] = create_mapping_Gamma_no_rep(grids, mapping_vols, nodes, nodes_red, externals_grids)
-    #println("Total Full surfaces          ", size(incidence_selection["Gamma"], 2))
+    println("Total Full surfaces          ", size(incidence_selection["Gamma"], 2))
     mappings["Ax"], mappings["NAx"] = create_mapping_Ax_v2(grids, mapping_vols, nodes, nodes_red)
     mappings["Ay"], mappings["NAy"] = create_mapping_Ay_v2(grids, mapping_vols, nodes, nodes_red)   
     mappings["Az"], mappings["NAz"] = create_mapping_Az_v2(grids, mapping_vols, nodes, nodes_red)
@@ -64,8 +64,8 @@ function mesher_FFT(use_escalings,materials,sx,sy,sz,grids,centri_vox,externals_
     Zs_info["ind_cond_rug_x"] = ind_cond_rug_x
     Zs_info["ind_cond_rug_y"] = ind_cond_rug_y
     Zs_info["ind_cond_rug_z"] = ind_cond_rug_z
-    #println("Total inductive edges        ", size(incidence_selection["A"], 1))
-    #println("Total  nodes                 ", size(incidence_selection["A"], 2))
+    println("Total inductive edges        ", size(incidence_selection["A"], 1))
+    println("Total  nodes                 ", size(incidence_selection["A"], 2))
     incidence_selection["mx"] = size(li_mats["lix_mat"], 1)
     incidence_selection["my"] = size(li_mats["liy_mat"], 1)
     incidence_selection["mz"] = size(li_mats["liz_mat"], 1)
@@ -122,4 +122,5 @@ function mesher_FFT(use_escalings,materials,sx,sy,sz,grids,centri_vox,externals_
     circulant_centers["Nz"] = Nz
 
     return escalings,incidence_selection,circulant_centers,diagonals,expansions,ports,lumped_elements,li_mats,Zs_info
+    #return ports,lumped_elements
 end
