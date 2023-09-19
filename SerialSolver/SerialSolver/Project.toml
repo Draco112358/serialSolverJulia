@@ -1,4 +1,5 @@
 [deps]
+FLoops = "cc61a311-1640-44b5-9fba-1b764f453329"
 FourierTools = "b18b359b-aebc-45ac-a139-9c0ccbb2871e"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
