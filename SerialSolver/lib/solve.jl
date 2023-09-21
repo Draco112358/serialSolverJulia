@@ -408,8 +408,9 @@ function doSolving(mesherOutput, solverInput, solverAlgoParams)
 
     #inputSolve = matread("/Users/edgardovittoria/Downloads/matfile.mat")
     println("time for solver")
+    #Profile.clear()
     out = @time FFT_solver_QS_S_type(freq,escalings,incidence_selection,FFTCP,FFTCLp,diagonals,ports,lumped_elements,expansions,GMRES_settings,Zs_info,QS_Rcc_FW);
-    ProfileView.view()
+    #ProfileView.view()
     return dump_json_data(out["Z"],out["S"],out["Y"], length(inputDict["ports"]))
 end
 

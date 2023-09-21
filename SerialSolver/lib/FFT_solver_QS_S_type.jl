@@ -6,8 +6,10 @@ using LinearMaps, MAT, LinearAlgebra, Krylov, KrylovMethods, ILUZero,FLoops
 
 
 function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCLp, diagonals, ports, lumped_elements, expansions, GMRES_settings, Zs_info, QS_Rcc_FW)
-    FFTW.set_num_threads(3)
-    BLAS.set_num_threads(6)
+    FFTW.set_num_threads(12)
+    BLAS.set_num_threads(1)
+    # println(BLAS.get_num_threads())
+    #
     #println("qui")
     # FFTCP[2,1] = FFTCP[1,1]
     # FFTCP[3,1] = FFTCP[1,1]
@@ -47,7 +49,31 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     Vrest = zeros(ComplexF64, m + n + ns, size(ports.port_nodes, 1))
     invP = sparse(1:ns, 1:ns, 1 ./ diagonals["P"],ns,ns)
     R_chiusura = 50.0
-    
+    PVector:: Vector{Any} = []
+    PLIVector:: Vector{Any} = []
+    for cont = 1:3
+            Nx = size(FFTCLp[cont, 1], 1) ÷ 2
+            Ny = size(FFTCLp[cont, 1], 2) ÷ 2
+            Nz = size(FFTCLp[cont, 1], 3) ÷ 2
+            padded_CircKt = zeros(ComplexF64, 2*Nx,2*Ny,2*Nz)
+            P = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+            push!(PVector, P)
+            push!(PLIVector, plan_ifft(FFTCLp[cont, 1] .* (P*padded_CircKt), flags=FFTW.MEASURE))
+    end
+    P2Vector:: Matrix{Any} = zeros(3, 3)
+    PLI2Vector:: Matrix{Any} = zeros(3, 3)
+    for cont1 = 1:3
+        for cont2 = cont1:3
+            Nx = size(FFTCP[cont1, cont2], 1) ÷ 2
+            Ny = size(FFTCP[cont1, cont2], 2) ÷ 2
+            Nz = size(FFTCP[cont1, cont2], 3) ÷ 2
+            padded_CircKt = zeros(ComplexF64, 2*Nx,2*Ny,2*Nz)
+            #Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
+            P = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+            P2Vector[cont1, cont2] = P
+            PLI2Vector[cont1, cont2] = plan_ifft(FFTCP[cont1, cont2] .* (P*padded_CircKt), flags=FFTW.MEASURE)
+        end
+    end
     
     for k = 1:nfreq
         #println("Freq n=$k - Freq Tot=$nfreq")
@@ -80,10 +106,10 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
         # P1 = @mget P
         # Q1 = @mget Q
 
-        #F = @time splu(SS
+        #F = @time splu(SS)
         
         
-        F = @time lu(SS)
+        F = lu(SS)
         #F = SS
         #F = @time ilu0(SS)
         #ps = PardisoSolver()
@@ -105,7 +131,7 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
             # x0::Vector{ComplexF64}=Vrest[:, c1];
         
             if QS_Rcc_FW == 1
-                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings.tol[k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F)
+                V, flag, relres, iter, resvec = gmres_custom(tn, false, GMRES_settings.tol[k], Inner_Iter, Vrest[:, c1], w[k], incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, F, PLIVector, PVector, PLI2Vector, P2Vector)
                 tot_iter_number = (iter[1] - 1) * Inner_Iter + iter[2] + 1
                 if (flag == 0)
                     println("Flag $flag - Iteration = $k - Convergence reached, number of iterations:$tot_iter_number")
@@ -162,7 +188,10 @@ function FFT_solver_QS_S_type(freq, escalings, incidence_selection, FFTCP, FFTCL
     return out
 end
 
-function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu)
+function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, expansions, invZ, invP, lu, PLIVector, PVector, PLI2Vector, P2Vector)
+    # @profile begin
+        
+    # end
     m = size(incidence_selection["A"], 1)
     ns = size(incidence_selection["Gamma"], 2)
     I = x[1:m]
@@ -185,9 +214,14 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
             I_exp = prod_real_complex(expansions["mat_map_Lp"][cont, 1] , Ired)
             CircKT = reshape(I_exp, Nx, Ny, Nz)
             padded_CircKt = zeros(ComplexF64, 2*Nx,2*Ny,2*Nz)
-            @views padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
+            padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
             #mat"Chi=ifftn($FFTCLp{$cont,1}.*fftn($CircKT,[2*$Nx,2*$Ny,2*$Nz]))"
-            Chi = ifft!(FFTCLp[cont, 1] .* fft!(padded_CircKt))
+            # P = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+            # PLI = plan_ifft(FFTCLp[cont, 1] .* (P*padded_CircKt), flags=FFTW.MEASURE)
+            # Chi = PLI * (FFTCLp[cont, 1] .* (P*padded_CircKt))
+            Chi = customIfftOptimized(PLIVector, PVector, padded_CircKt, FFTCLp, cont)
+            #Chi = customIfft(padded_CircKt, FFTCLp, cont)
+            #Chi = ifft(FFTCLp[cont, 1] .* fft(padded_CircKt))
             #Chi = @mget Chi
             Y1[ind_aux_Lp[cont]] = Y1[ind_aux_Lp[cont]] + prod_real_complex(transpose(expansions["mat_map_Lp"][cont, 1]) , reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1))
     end
@@ -202,8 +236,13 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
             Q_exp = prod_real_complex(expansions["exp_P"][cont1, cont2] , Q)
             CircKT = reshape(Q_exp, Nx, Ny, Nz)
             padded_CircKt = zeros(ComplexF64, 2*Nx,2*Ny,2*Nz)
-            @views padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
-            Chi = ifft!(FFTCP[cont1, cont2] .* fft!(padded_CircKt))
+            padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
+            #Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
+            # P = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+            # PLI = plan_ifft(FFTCP[cont1, cont2] .* (P*padded_CircKt), flags=FFTW.MEASURE)
+            # Chi = PLI * (FFTCP[cont1, cont2] .* (P*padded_CircKt))
+            #Chi = @time customIfft2(padded_CircKt, FFTCP, cont1, cont2)
+            Chi = customIfftOptimized2(PLI2Vector, P2Vector, padded_CircKt, FFTCP, cont1, cont2)
             
             # mat"Chi=ifftn($FFTCP{$cont1,$cont2}.*fftn($CircKT,[2*$Nx,2*$Ny,2*$Nz]))"
             # Chi = @mget Chi
@@ -212,8 +251,13 @@ function ComputeMatrixVector(x, w, incidence_selection, FFTCP, FFTCLp, DZ, Yle, 
                 Q_exp = prod_real_complex(expansions["exp_P"][cont2, cont1] , Q)
                 CircKT = reshape(Q_exp, Nx, Ny, Nz)
                 padded_CircKt = zeros(ComplexF64, 2*Nx,2*Ny,2*Nz)
-                @views padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
-                Chi = ifft!(FFTCP[cont1, cont2] .* fft!(padded_CircKt))
+                padded_CircKt[1:size(CircKT,1), 1:size(CircKT,2), 1:size(CircKT,3)] = CircKT
+                #Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
+                # P = plan_fft(padded_CircKt)
+                # PLI = plan_ifft(FFTCP[cont1, cont2] .* (P*padded_CircKt))
+                #Chi = PLI * (FFTCP[cont1, cont2] .* (P*padded_CircKt))
+                #Chi = @time customIfft2(padded_CircKt, FFTCP, cont1, cont2)
+                Chi = customIfftOptimized2(PLI2Vector, P2Vector, padded_CircKt, FFTCP, cont1, cont2)
                 # mat"Chi=ifftn($FFTCP{$cont1,$cont2}.*fftn($CircKT,[2*$Nx,2*$Ny,2*$Nz]))"
                 # Chi = @mget Chi
                 Y2 = Y2 + prod_real_complex(transpose(expansions["exp_P"][cont1, cont2]) , (reshape(Chi[1:Nx, 1:Ny, 1:Nz], Nx * Ny * Nz, 1)))
@@ -310,17 +354,6 @@ function prod_complex_real(A,x)
     return y
 end
 
-function threaded_mul!(y::Vector{Any}, A::SparseMatrixCSC{Float64,Int64}, x::Vector{ComplexF64})
-    A.m == A.n || error("A is not a square matrix!")
-    Base.Threads.@threads for i = 1 : A.n
-      tmp = zero(A.n)
-      @inbounds for j = A.colptr[i] : (A.colptr[i+1] - 1)
-        tmp += A.nzval[j] * x[A.rowval[j]]
-      end
-      @inbounds y[i] = tmp
-    end
-    return y
-end
 
 function s2z(S,Zo)
     num_ports=size(S)[1]
@@ -344,3 +377,32 @@ function s2y(S,Zo)
     return Y
 end
 
+function customIfftOptimized(PLIVector, PVector, padded_CircKt, FFTCLp, cont)
+    return PLIVector[cont] * (FFTCLp[cont, 1] .* (PVector[cont]*padded_CircKt))
+end
+
+function customIfftOptimized2(PLI2Vector, P2Vector, padded_CircKt, FFTCP, cont1, cont2)
+    return PLI2Vector[cont1,cont2] * (FFTCP[cont1, cont2] .* (P2Vector[cont1,cont2]*padded_CircKt))
+end
+
+
+function customIfft(padded_CircKt, FFTCLp, cont)
+    # P = plan_fft(padded_CircKt, flags=FFTW.MEASURE)
+    # y = deepcopy(padded_CircKt)
+    # mul!(y, P, padded_CircKt)
+    # PLI = plan_ifft(FFTCLp[cont, 1] .* y, flags=FFTW.MEASURE)
+    #PLI = plan_ifft(FFTCLp[cont, 1] .* (P*padded_CircKt), flags=FFTW.MEASURE)
+    # Chi = deepcopy(FFTCLp[cont, 1] .* y)
+    # mul!(Chi, PLI, (FFTCLp[cont, 1] .* y))
+    #Chi = PLI * (FFTCLp[cont, 1] .* (P*padded_CircKt))
+    Chi = ifft(FFTCLp[cont, 1] .* fft(padded_CircKt))
+    return Chi
+end
+
+function customIfft2(padded_CircKt, FFTCP, cont1, cont2)
+    # P = plan_fft(padded_CircKt)
+    # PLI = plan_ifft(FFTCP[cont1, cont2] .* (P*padded_CircKt))
+    # Chi = PLI * (FFTCP[cont1, cont2] .* (P*padded_CircKt))
+    Chi = ifft(FFTCP[cont1, cont2] .* fft(padded_CircKt))
+    return Chi
+end

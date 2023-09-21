@@ -15,5 +15,5 @@ Genie.Configuration.config!(
 ENV["JULIA_REVISE"] = "auto"
 ENV["JULIA_PARDISO"] = "/Users/edgardovittoria/Applications/panua-pardiso-20230908-mac_arm64/lib"
 ENV["PARDISO_LIC_PATH"] = "/Users/edgardovittoria/"
-ENV["OMP_NUM_THREADS"] = 1
+ENV["OMP_NUM_THREADS"] = 6
 ENV["MATLAB_HOME"] = "/Applications/MATLAB_R2023b.app/"
